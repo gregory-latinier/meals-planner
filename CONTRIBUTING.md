@@ -18,7 +18,7 @@ By participating, you agree to uphold it.
 
 2. Install dependencies:
    ```sh
-   npm install
+   pnpm install
    ```
 
 3. Configure environment and start local infrastructure:
@@ -33,18 +33,18 @@ By participating, you agree to uphold it.
    ```sh
    npx prisma db push
    npx prisma generate
-   # or: npm run test:setup
+   # or: pnpm run test:setup
    ```
 
 5. Verify the setup works:
    ```sh
-   npm run lint
-   npm test
+   pnpm run lint
+   pnpm test
    ```
 
 6. Start the app:
    ```sh
-   npm run dev
+   pnpm run dev
    ```
 
 ## Development Workflow

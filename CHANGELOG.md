@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Switch project package management from npm to pnpm (pnpm lockfile, scripts, docs, and automation permissions updated).
+
 ### Fixed
 
 - Resolve issue #1 reviewer findings: make week plan lookup atomic with Prisma `upsert`, add reliable test Prisma setup scripts for local/CI runs, ignore generated Prisma client artifacts, and expand meal-service validation/error-path tests.

@@ -47,27 +47,53 @@
       "git tag *": "allow",
       "gh issue *": "allow",
       "gh pr *": "allow",
+      "gh pr merge *": "allow",
       "gh project *": "allow",
       "gh repo create *": "allow",
       "gh release create *": "allow",
+      "gh issue close *": "allow",
       "gh secret *": "ask",
-      "npm *": "allow",
+      "pnpm *": "allow",
       "npx *": "allow",
       "docker *": "allow",
       "docker compose *": "allow",
       "*": "allow"
     },
     "edit": "allow",
-    "webfetch": "allow"
+    "webfetch": "allow",
+    "task": "allow",
+    "todowrite": "allow"
   },
   "agent": {
+    "orchestrator": {
+      "prompt": "Default execution mode: once product-discovery is complete and the user confirms handoff, run the full delivery lifecycle autonomously end-to-end (ticketing, board transitions, implementation delegation, review delegation, PR creation, merge, close issue, set board Done). Avoid repetitive confirmation prompts except for truly destructive/security-sensitive actions (secret management, irreversible deletes outside normal GitHub issue/PR flow). Always report progress and final board status. Mandatory local validation gate: after implementation and automated checks pass, but BEFORE any git commit/push/PR creation, pause and ask the user to test locally. Provide exact run steps/URLs. Resume commit/push/PR only after explicit user confirmation that local testing is approved.",
+      "permission": {
+        "bash": {
+          "git *": "allow",
+          "gh *": "allow",
+          "pnpm *": "allow",
+          "npx *": "allow",
+          "docker *": "allow",
+          "*": "allow"
+        },
+        "edit": "allow",
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "webfetch": "allow",
+        "task": "allow",
+        "todowrite": "allow"
+      }
+    },
     "maintainer-ops": {
-      "prompt": "Operate autonomously for approved tasks. Do not emit dry-run confirmation tables or ask follow-up confirmation questions when the orchestrator has already provided approval. Execute safe repository and GitHub operations directly and report results. If the user explicitly accepts known blockers (for example missing CI checks or missing approval on personal projects), treat them as accepted WARN items and continue execution unless a true technical failure occurs.",
+      "prompt": "Operate autonomously for approved tasks. Do not emit dry-run confirmation tables or ask follow-up confirmation questions when the orchestrator has already provided approval. Execute repository and GitHub operations directly and report results. Merge PRs when explicitly instructed by the orchestrator. If the user explicitly accepts known blockers (for example missing CI checks or missing approval on personal projects), treat them as accepted WARN items and continue execution unless a true technical failure occurs. Do not perform commit/push/PR steps until the orchestrator confirms the local validation gate was completed and approved by the user.",
       "permission": {
         "bash": {
           "gh project *": "allow",
           "gh issue *": "allow",
           "gh pr *": "allow",
+          "gh pr merge *": "allow",
+          "gh issue close *": "allow",
           "gh repo view *": "allow",
           "git status": "allow",
           "git log *": "allow",
@@ -81,9 +107,10 @@
       }
     },
     "implementer": {
+      "prompt": "Implement code changes autonomously, run lint/tests/build where feasible, and then stop at a local validation checkpoint before any commit/push activity. Return a concise local test script (commands + URL) for the user to run manually. Do not commit or push unless the orchestrator explicitly says local testing is approved.",
       "permission": {
         "bash": {
-          "npm *": "allow",
+          "pnpm *": "allow",
           "npx *": "allow",
           "node *": "allow",
           "prisma *": "allow",

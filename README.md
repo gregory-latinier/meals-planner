@@ -19,7 +19,7 @@ Current MVP scope includes:
 ## Prerequisites
 
 - Node.js 20+
-- npm 10+
+- pnpm 10+
 - Docker Desktop (or compatible Docker runtime)
 
 ## Local setup
@@ -27,7 +27,7 @@ Current MVP scope includes:
 1. Install dependencies:
 
 ```sh
-npm install
+pnpm install
 ```
 
 2. Copy environment template:
@@ -51,13 +51,13 @@ npx prisma db push
 5. Prepare the Prisma test client and test schema:
 
 ```sh
-npm run test:setup
+pnpm run test:setup
 ```
 
 6. Start the app:
 
 ```sh
-npm run dev
+pnpm run dev
 ```
 
 Open `http://localhost:3000`.
@@ -67,11 +67,11 @@ If you already have a `.env`, make sure `DATABASE_URL` and `TEST_DATABASE_URL` u
 ## Test and lint
 
 ```sh
-npm run lint
-npm test
+pnpm run lint
+pnpm test
 ```
 
-`npm test` now runs `npm run test:setup` first so first-time setup and CI runs do not depend on checked-in generated Prisma client artifacts.
+`pnpm test` now runs `pnpm run test:setup` first so first-time setup and CI runs do not depend on checked-in generated Prisma client artifacts.
 
 ## PWA baseline
 
