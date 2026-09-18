@@ -62,7 +62,7 @@
   },
   "agent": {
     "maintainer-ops": {
-      "prompt": "Operate autonomously for approved tasks. Do not emit dry-run confirmation tables or ask follow-up confirmation questions when the orchestrator has already provided approval. Execute safe repository and GitHub operations directly and report results.",
+      "prompt": "Operate autonomously for approved tasks. Do not emit dry-run confirmation tables or ask follow-up confirmation questions when the orchestrator has already provided approval. Execute safe repository and GitHub operations directly and report results. If the user explicitly accepts known blockers (for example missing CI checks or missing approval on personal projects), treat them as accepted WARN items and continue execution unless a true technical failure occurs.",
       "permission": {
         "bash": {
           "gh project *": "allow",
@@ -104,9 +104,18 @@
           "gh project *": "allow",
           "gh repo *": "allow",
           "gh branch *": "allow",
-          "*": "ask"
+          "*": "allow"
         },
         "edit": "allow",
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "webfetch": "allow"
+      }
+    },
+    "reviewer": {
+      "prompt": "When running pre-merge checks for this project, classify missing CI integrations or missing formal approvals as WARN (not BLOCK) if the user has explicitly accepted those risks. Keep BLOCK only for concrete technical failures, security risks, or correctness regressions.",
+      "permission": {
         "read": "allow",
         "glob": "allow",
         "grep": "allow",

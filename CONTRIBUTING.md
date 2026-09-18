@@ -27,6 +27,8 @@ By participating, you agree to uphold it.
    docker compose up -d
    ```
 
+   Note: PostgreSQL is exposed on host port `5434` to avoid collisions with other local projects.
+
 4. Prepare the database/client:
    ```sh
    npx prisma db push

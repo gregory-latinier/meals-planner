@@ -10,3 +10,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Resolve issue #1 reviewer findings: make week plan lookup atomic with Prisma `upsert`, add reliable test Prisma setup scripts for local/CI runs, ignore generated Prisma client artifacts, and expand meal-service validation/error-path tests.
+- Change local PostgreSQL host port mapping to `5434` to avoid conflicts with other running local projects.

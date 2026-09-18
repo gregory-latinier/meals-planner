@@ -36,7 +36,7 @@ npm install
 cp .env.example .env
 ```
 
-3. Start PostgreSQL:
+3. Start PostgreSQL (host port `5434` to avoid conflicts with other local projects):
 
 ```sh
 docker compose up -d
@@ -61,6 +61,8 @@ npm run dev
 ```
 
 Open `http://localhost:3000`.
+
+If you already have a `.env`, make sure `DATABASE_URL` and `TEST_DATABASE_URL` use `localhost:5434`.
 
 ## Test and lint
 
