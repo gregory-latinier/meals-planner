@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../prisma/generated/test-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("TEST_DATABASE_URL")
+}
+
+model WeekPlan {
+  id        String   @id @default(cuid())
+  weekStart String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  meals     Meal[]
+}
+
+model Meal {
+  id         String   @id @default(cuid())
+  weekPlanId String
+  title      String
+  notes      String?
+  day        WeekDay?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  weekPlan   WeekPlan @relation(fields: [weekPlanId], references: [id], onDelete: Cascade)
+}
+
+enum WeekDay {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}

@@ -5,7 +5,7 @@ the project locally, the conventions we follow, and the PR process.
 
 ## Code of Conduct
 
-This project follows the [Contributor Covenant Code of Conduct](./CODE_OF_CONDUCT.md).
+This project follows the [Contributor Covenant Code of Conduct](https://www.contributor-covenant.org/version/2/1/code_of_conduct/).
 By participating, you agree to uphold it.
 
 ## Getting Started
@@ -18,12 +18,31 @@ By participating, you agree to uphold it.
 
 2. Install dependencies:
    ```sh
-   # add your install command here
+   npm install
    ```
 
-3. Verify the setup works:
+3. Configure environment and start local infrastructure:
    ```sh
-   # add your test/lint/build command here
+   cp .env.example .env
+   docker compose up -d
+   ```
+
+4. Prepare the database/client:
+   ```sh
+   npx prisma db push
+   npx prisma generate
+   # or: npm run test:setup
+   ```
+
+5. Verify the setup works:
+   ```sh
+   npm run lint
+   npm test
+   ```
+
+6. Start the app:
+   ```sh
+   npm run dev
    ```
 
 ## Development Workflow
@@ -60,5 +79,5 @@ Use the GitHub issue templates:
 
 ## Questions
 
-Open a [Discussion](https://github.com/YOUR_USERNAME/meals-planner/discussions) for
+Open a [Discussion](https://github.com/gregory-latinier/meals-planner/discussions) for
 questions rather than issues.

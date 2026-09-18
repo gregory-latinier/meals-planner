@@ -5,7 +5,17 @@
   "skills": {
     "paths": [".opencode/skills"]
   },
-
+  "mcp": {
+    "github": {
+      "type": "local",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-github"],
+      "enabled": true,
+      "environment": {
+        "GITHUB_TOKEN": "{env:GITHUB_TOKEN}",
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_TOKEN}"
+      }
+    }
+  },
   "permission": {
     "bash": {
       "git status": "allow",
@@ -31,18 +41,77 @@
       "gh project item-edit *": "allow",
       "gh project item-create *": "allow",
       "gh project field-list *": "allow",
-      "git add *": "ask",
-      "git commit *": "ask",
-      "git push *": "ask",
-      "git tag *": "ask",
-      "gh repo create *": "ask",
-      "gh release create *": "ask",
+      "git add *": "allow",
+      "git commit *": "allow",
+      "git push *": "allow",
+      "git tag *": "allow",
+      "gh issue *": "allow",
+      "gh pr *": "allow",
+      "gh project *": "allow",
+      "gh repo create *": "allow",
+      "gh release create *": "allow",
       "gh secret *": "ask",
-      "npm publish *": "ask",
-      "npx *": "ask",
-      "*": "ask"
+      "npm *": "allow",
+      "npx *": "allow",
+      "docker *": "allow",
+      "docker compose *": "allow",
+      "*": "allow"
     },
-    "edit": "ask",
+    "edit": "allow",
     "webfetch": "allow"
+  },
+  "agent": {
+    "maintainer-ops": {
+      "prompt": "Operate autonomously for approved tasks. Do not emit dry-run confirmation tables or ask follow-up confirmation questions when the orchestrator has already provided approval. Execute safe repository and GitHub operations directly and report results.",
+      "permission": {
+        "bash": {
+          "gh project *": "allow",
+          "gh issue *": "allow",
+          "gh pr *": "allow",
+          "gh repo view *": "allow",
+          "git status": "allow",
+          "git log *": "allow",
+          "git diff *": "allow",
+          "*": "allow"
+        },
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "webfetch": "allow"
+      }
+    },
+    "implementer": {
+      "permission": {
+        "bash": {
+          "npm *": "allow",
+          "npx *": "allow",
+          "node *": "allow",
+          "prisma *": "allow",
+          "docker *": "allow",
+          "docker compose *": "allow",
+          "git status": "allow",
+          "git log *": "allow",
+          "git diff *": "allow",
+          "git show *": "allow",
+          "git fetch *": "allow",
+          "git branch *": "allow",
+          "git add *": "allow",
+          "git commit *": "allow",
+          "git push *": "allow",
+          "git tag *": "allow",
+          "gh issue *": "allow",
+          "gh pr *": "allow",
+          "gh project *": "allow",
+          "gh repo *": "allow",
+          "gh branch *": "allow",
+          "*": "ask"
+        },
+        "edit": "allow",
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "webfetch": "allow"
+      }
+    }
   }
 }

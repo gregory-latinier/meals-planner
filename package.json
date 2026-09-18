@@ -1,0 +1,35 @@
+{
+  "name": "meals-planner",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "npm run test:setup && vitest run",
+    "test:watch": "vitest",
+    "test:setup": "npm run test:prisma:generate && npm run test:prisma:push",
+    "test:prisma:generate": "prisma generate --schema prisma/schema.test.prisma",
+    "test:prisma:push": "prisma db push --schema prisma/schema.test.prisma --skip-generate",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.20.0",
+    "next": "^14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.4",
+    "@types/react": "^18.3.9",
+    "@types/react-dom": "^18.3.0",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.15",
+    "prisma": "^5.20.0",
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.1"
+  }
+}
