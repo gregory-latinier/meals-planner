@@ -27,6 +27,13 @@ export async function getWeekMeals(weekPlanId: string): Promise<Meal[]> {
   return service.getWeekMeals(weekPlanId);
 }
 
+export async function getWeekPlansWithMealsInRange(
+  startWeekStart: string,
+  endWeekStart: string,
+): Promise<Array<WeekPlan & { meals: Meal[] }>> {
+  return service.getWeekPlansWithMealsInRange(startWeekStart, endWeekStart);
+}
+
 export async function createMeal(weekPlanId: string, formData: FormData): Promise<Meal> {
   const weekPlan = await prisma.weekPlan.findUnique({
     where: { id: weekPlanId },

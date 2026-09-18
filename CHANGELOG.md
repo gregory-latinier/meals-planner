@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add calendar-style meal history pages (`/history/YYYY-MM`) with month/week navigation, day-grouped historical meals, week selection from calendar cells, and empty states when no prior plans exist.
+
 ### Changed
 
 - Switch project package management from npm to pnpm (pnpm lockfile, scripts, docs, and automation permissions updated).

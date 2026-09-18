@@ -40,12 +40,19 @@ By participating, you agree to uphold it.
    ```sh
    pnpm run lint
    pnpm test
+   pnpm run test:coverage
+   pnpm run test:e2e
    ```
+
+   Coverage policy: overall coverage must be at least **80%**.
+   Frontend policy: UI changes require automated e2e/integration frontend tests.
 
 6. Start the app:
    ```sh
    pnpm run dev
    ```
+
+   The app runs on `http://localhost:3005` by default.
 
 ## Development Workflow
 

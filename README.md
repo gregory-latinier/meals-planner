@@ -7,6 +7,7 @@ Current MVP scope includes:
 - Weekly plan pages by week start date (Monday, `YYYY-MM-DD`)
 - Meal CRUD for a target week
 - Optional day assignment (Monday–Sunday) or unassigned meals
+- Calendar-style history view by month/week with day-grouped past meals
 - Minimal PWA baseline (web app manifest + icon)
 
 ## Stack
@@ -60,7 +61,10 @@ pnpm run test:setup
 pnpm run dev
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:3005`.
+
+- Weekly planner: `http://localhost:3005/weeks/YYYY-MM-DD`
+- History view: `http://localhost:3005/history/YYYY-MM`
 
 If you already have a `.env`, make sure `DATABASE_URL` and `TEST_DATABASE_URL` use `localhost:5434`.
 
@@ -69,9 +73,15 @@ If you already have a `.env`, make sure `DATABASE_URL` and `TEST_DATABASE_URL` u
 ```sh
 pnpm run lint
 pnpm test
+pnpm run test:coverage
+pnpm run test:e2e
 ```
 
 `pnpm test` now runs `pnpm run test:setup` first so first-time setup and CI runs do not depend on checked-in generated Prisma client artifacts.
+
+Coverage policy: overall unit-test coverage must be at least **80%**.
+
+Frontend policy: UI changes must include automated frontend tests (Playwright e2e) and pass `pnpm run test:e2e`.
 
 ## PWA baseline
 

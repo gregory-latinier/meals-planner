@@ -13,7 +13,7 @@ Each feature links to its brief in `docs/product/features/`.
 
 | Feature | Brief | Target release | Status |
 |---|---|---|---|
-| Household meal planning and shared groceries | `docs/product/features/household-meal-planning-shared-groceries.md` | v0.1.0 | Discovery complete |
+| Household meal planning and shared groceries | `docs/product/features/household-meal-planning-shared-groceries.md` | v0.1.0 | In progress (ticketed) |
 
 ---
 
@@ -23,6 +23,7 @@ Each feature links to its brief in `docs/product/features/`.
 
 | Feature | Brief | Target release | Notes |
 |---|---|---|---|
+| Calendar meal history view | Part of `docs/product/features/household-meal-planning-shared-groceries.md` | v0.1.0 | Scoped in ticket #3 — waiting user review before continued development |
 | Extraction quality hardening (multilingual normalization + OCR accuracy) | TBD | TBD | Planned post-v0.1 based on real household usage |
 
 ---

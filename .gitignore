@@ -21,3 +21,8 @@ pnpm-debug.log*
 prisma/dev.db
 prisma/dev.db-journal
 prisma/generated/
+
+# Test artifacts
+coverage/
+playwright-report/
+test-results/

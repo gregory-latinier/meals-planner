@@ -73,6 +73,23 @@ export function createMealService(db: DbClient) {
       });
     },
 
+    async getWeekPlansWithMealsInRange(startWeekStart: string, endWeekStart: string) {
+      return db.weekPlan.findMany({
+        where: {
+          weekStart: {
+            gte: startWeekStart,
+            lte: endWeekStart,
+          },
+        },
+        include: {
+          meals: {
+            orderBy: [{ createdAt: "asc" }],
+          },
+        },
+        orderBy: [{ weekStart: "desc" }],
+      });
+    },
+
     async createMeal(weekPlanId: string, rawInput: { title: unknown; notes: unknown; day: unknown }) {
       const input = toMealInput(rawInput);
 

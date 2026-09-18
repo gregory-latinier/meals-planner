@@ -104,4 +104,32 @@ describe("meal service CRUD", () => {
       }),
     ).rejects.toThrow("Week plan not found. Refresh and try again.");
   });
+
+  test("returns week plans with meals for a date range in reverse chronological order", async () => {
+    const weekA = await service.getWeekPlan("2026-09-07");
+    const weekB = await service.getWeekPlan("2026-09-14");
+    const weekC = await service.getWeekPlan("2026-09-21");
+
+    await service.createMeal(weekA.id, {
+      title: "Week A meal",
+      notes: "",
+      day: "MONDAY",
+    });
+    await service.createMeal(weekB.id, {
+      title: "Week B meal",
+      notes: "",
+      day: "TUESDAY",
+    });
+    await service.createMeal(weekC.id, {
+      title: "Week C meal",
+      notes: "",
+      day: "WEDNESDAY",
+    });
+
+    const plans = await service.getWeekPlansWithMealsInRange("2026-09-07", "2026-09-14");
+
+    expect(plans.map((plan) => plan.weekStart)).toEqual(["2026-09-14", "2026-09-07"]);
+    expect(plans[0].meals.map((meal) => meal.title)).toEqual(["Week B meal"]);
+    expect(plans[1].meals.map((meal) => meal.title)).toEqual(["Week A meal"]);
+  });
 });

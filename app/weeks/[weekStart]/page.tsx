@@ -53,6 +53,9 @@ export default async function WeekPage({ params }: PageProps) {
         <Link className="week-link" href={`/weeks/${nextWeek}`}>
           {nextWeek} →
         </Link>
+        <Link className="week-link" href={`/history/${weekStart.slice(0, 7)}?week=${weekStart}`}>
+          History
+        </Link>
       </nav>
 
       <section className="section" style={{ marginBottom: "0.75rem" }}>
