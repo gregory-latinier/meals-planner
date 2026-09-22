@@ -10,6 +10,7 @@ This baseline includes:
 - Docker runtime for app
 - Docker Compose baseline for app + local self-hosted Supabase dependencies
 - CI workflow (lint, typecheck, test)
+- Local auth bootstrap and recovery flows (one-time setup/reset tokens)
 
 > Scope note: this is platform scaffolding only. Auth and feature implementation are intentionally out of scope for this baseline.
 
@@ -73,6 +74,41 @@ This baseline includes:
    docker compose down
    ```
 
+## Auth bootstrap and local recovery
+
+This project uses a local one-time token flow for first-run setup and password recovery.
+
+### First run setup
+
+On startup, when uninitialized, the app generates a one-time setup token and logs it:
+
+- setup URL: `/setup`
+- one-time token value
+- expiry timestamp
+
+Optional persisted token file:
+
+1. Set `AUTH_SETUP_TOKEN_FILE` in `.env` (example: `.data/setup-token.txt`)
+2. Restart the app
+3. Read token from that file and complete `/setup`
+
+After setup succeeds, `/setup` is disabled and redirects to `/login`.
+
+### Password recovery (local operator flow)
+
+Generate a one-time reset token from the host:
+
+```bash
+pnpm auth:reset-token
+```
+
+Then open `/reset`, submit token + new password, and sign in at `/login`.
+
+Notes:
+
+- setup/reset tokens are short-lived and single-use
+- setup/reset/login lifecycle events are appended to `AUTH_AUDIT_LOG_FILE` (default: `.data/auth-audit.log`)
+
 ## Developer scripts
 
 - `pnpm dev` — start Next.js dev server
@@ -81,6 +117,7 @@ This baseline includes:
 - `pnpm lint` — ESLint checks
 - `pnpm typecheck` — TypeScript checks
 - `pnpm test` — run Vitest test suite
+- `pnpm auth:reset-token` — generate one-time local password reset token
 
 ## First boot + troubleshooting
 
