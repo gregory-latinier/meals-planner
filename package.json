@@ -10,7 +10,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "auth:reset-token": "node scripts/generate-reset-token.mjs"
   },
   "dependencies": {
     "next": "15.3.1",
