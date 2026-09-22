@@ -1,0 +1,143 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-http://localhost:8000}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-replace-with-dev-anon-key}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-replace-with-dev-service-role-key}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - kong
+    restart: unless-stopped
+
+  db:
+    image: supabase/postgres:15.8.1.084
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "54322:5432"
+    volumes:
+      - supabase-db:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  auth:
+    image: supabase/gotrue:v2.170.0
+    depends_on:
+      - db
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${NEXT_PUBLIC_SUPABASE_URL:-http://localhost:8000}
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/postgres?search_path=auth
+      GOTRUE_SITE_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET:-replace-with-a-long-random-jwt-secret}
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_DISABLE_SIGNUP: "false"
+    restart: unless-stopped
+
+  rest:
+    image: postgrest/postgrest:v12.2.3
+    depends_on:
+      - db
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD:-postgres}@db:5432/postgres
+      PGRST_DB_SCHEMAS: public,storage,graphql_public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET:-replace-with-a-long-random-jwt-secret}
+    restart: unless-stopped
+
+  realtime:
+    image: supabase/realtime:v2.34.47
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: postgres
+      DB_USER: postgres
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      PORT: 4000
+      SECRET_KEY_BASE: ${JWT_SECRET:-replace-with-a-long-random-jwt-secret}
+      JWT_SECRET: ${JWT_SECRET:-replace-with-a-long-random-jwt-secret}
+    restart: unless-stopped
+
+  storage:
+    image: supabase/storage-api:v1.19.3
+    depends_on:
+      - db
+      - rest
+    environment:
+      ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-replace-with-dev-anon-key}
+      SERVICE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-replace-with-dev-service-role-key}
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/postgres
+      POSTGREST_URL: http://rest:3000
+      PGRST_JWT_SECRET: ${JWT_SECRET:-replace-with-a-long-random-jwt-secret}
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: local
+      GLOBAL_S3_BUCKET: stub
+    volumes:
+      - supabase-storage:/var/lib/storage
+    restart: unless-stopped
+
+  studio:
+    image: supabase/studio:20250422-5d07d06
+    depends_on:
+      - kong
+    environment:
+      STUDIO_PG_META_URL: http://meta:8080
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLIC_URL: ${NEXT_PUBLIC_SUPABASE_URL:-http://localhost:8000}
+      SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-replace-with-dev-anon-key}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-replace-with-dev-service-role-key}
+      AUTH_JWT_SECRET: ${JWT_SECRET:-replace-with-a-long-random-jwt-secret}
+      DASHBOARD_USERNAME: ${DASHBOARD_USERNAME:-supabase}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-supabase}
+    ports:
+      - "${SUPABASE_STUDIO_PORT:-3001}:3000"
+    restart: unless-stopped
+
+  meta:
+    image: supabase/postgres-meta:v0.86.0
+    depends_on:
+      - db
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: postgres
+      PG_META_DB_USER: postgres
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    restart: unless-stopped
+
+  kong:
+    image: kong:2.8.1
+    depends_on:
+      - auth
+      - rest
+      - realtime
+      - storage
+    volumes:
+      - ./supabase/kong.yml:/home/kong/kong.yml:ro
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+    ports:
+      - "${KONG_HTTP_PORT:-8000}:8000"
+    restart: unless-stopped
+
+volumes:
+  supabase-db:
+  supabase-storage:
