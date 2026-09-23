@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import type { ReactNode } from "react";
 import type { AuthFormState } from "@/app/auth/form-state";
@@ -39,6 +40,15 @@ export function AuthForm({ action, initialState, submitLabel, fields }: AuthForm
         >
           {state.message}
         </p>
+      ) : null}
+
+      {state.ok && state.nextHref ? (
+        <Link
+          href={state.nextHref}
+          className="block w-full rounded-xl border border-emerald-700 px-4 py-3 text-center text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
+        >
+          {state.nextLabel ?? state.nextHref}
+        </Link>
       ) : null}
     </form>
   );

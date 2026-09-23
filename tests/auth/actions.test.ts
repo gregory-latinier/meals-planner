@@ -53,5 +53,26 @@ describe("Auth form server actions", () => {
 
     expect(result.ok).toBe(true);
     expect(result.message).toMatch(/password reset complete/i);
+    expect(result.nextHref).toBe("/login");
+    expect(result.nextLabel).toMatch(/login/i);
+  });
+
+  it("returns setup success message with login link", async () => {
+    completeSetupMock.mockResolvedValue({ ok: true });
+
+    const module = await import("@/app/auth/actions");
+    const formState = await import("@/app/auth/form-state");
+
+    const formData = new FormData();
+    formData.set("token", "abc");
+    formData.set("password", "password-1");
+    formData.set("confirmPassword", "password-1");
+
+    const result = await module.setupAction(formState.initialAuthFormState, formData);
+
+    expect(result.ok).toBe(true);
+    expect(result.message).toMatch(/setup complete/i);
+    expect(result.nextHref).toBe("/login");
+    expect(result.nextLabel).toMatch(/login/i);
   });
 });

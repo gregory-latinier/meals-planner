@@ -75,7 +75,9 @@ export async function setupAction(_prevState: AuthFormState, formData: FormData)
 
   return {
     ok: true,
-    message: "Setup complete. You can now sign in at /login.",
+    message: "Setup complete.",
+    nextHref: "/login",
+    nextLabel: "Go to login",
   };
 }
 
@@ -116,6 +118,8 @@ export async function resetAction(_prevState: AuthFormState, formData: FormData)
 
   return {
     ok: true,
-    message: "Password reset complete. Sign in with your new password at /login.",
+    message: "Password reset complete.",
+    nextHref: "/login",
+    nextLabel: "Go to login",
   };
 }
