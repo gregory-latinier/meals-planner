@@ -1,4 +1,4 @@
-import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { appendFile, copyFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
@@ -45,6 +45,13 @@ export type AuthActionResult = {
 
 type LoginResult = AuthActionResult;
 
+type SessionPayload = {
+  sub: "admin";
+  iat: number;
+  exp: number;
+  nonce: string;
+};
+
 export type SetupTokenBootstrapResult = {
   generated: boolean;
   token?: string;
@@ -90,6 +97,11 @@ function parsePositiveIntEnv(name: string, fallback: number): number {
   return parsed;
 }
 
+function parsePositiveIntEnvAsSeconds(name: string, fallbackHours: number): number {
+  const hours = parsePositiveIntEnv(name, fallbackHours);
+  return hours * 60 * 60;
+}
+
 function getAuthConfig(): AuthConfig {
   const setupTokenTtlMinutes = parsePositiveIntEnv("AUTH_SETUP_TOKEN_TTL_MINUTES", 30);
   const resetTokenTtlMinutes = parsePositiveIntEnv("AUTH_RESET_TOKEN_TTL_MINUTES", 15);
@@ -109,6 +121,60 @@ function getAuthConfig(): AuthConfig {
 
 function tokenHash(token: string): string {
   return createHash("sha256").update(token).digest("hex");
+}
+
+function getSessionSigningKey(salt: string, hash: string): Buffer {
+  return createHash("sha256").update(`meals-planner-session:${salt}:${hash}`).digest();
+}
+
+function buildSessionToken(salt: string, hash: string): string {
+  const now = Math.floor(Date.now() / 1000);
+  const ttlSeconds = parsePositiveIntEnvAsSeconds("AUTH_SESSION_TTL_HOURS", 12);
+  const payload: SessionPayload = {
+    sub: "admin",
+    iat: now,
+    exp: now + ttlSeconds,
+    nonce: randomBytes(12).toString("base64url"),
+  };
+
+  const encodedPayload = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+  const signature = createHmac("sha256", getSessionSigningKey(salt, hash)).update(encodedPayload).digest("base64url");
+
+  return `${encodedPayload}.${signature}`;
+}
+
+function validateSessionToken(token: string, salt: string, hash: string): boolean {
+  const [encodedPayload, signature] = token.split(".");
+
+  if (!encodedPayload || !signature) {
+    return false;
+  }
+
+  let payload: SessionPayload;
+
+  try {
+    payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as SessionPayload;
+  } catch {
+    return false;
+  }
+
+  if (payload.sub !== "admin") {
+    return false;
+  }
+
+  if (!Number.isFinite(payload.exp) || payload.exp <= Math.floor(Date.now() / 1000)) {
+    return false;
+  }
+
+  const expectedSignature = createHmac("sha256", getSessionSigningKey(salt, hash)).update(encodedPayload).digest("base64url");
+  const providedBuffer = Buffer.from(signature, "utf8");
+  const expectedBuffer = Buffer.from(expectedSignature, "utf8");
+
+  if (providedBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(providedBuffer, expectedBuffer);
 }
 
 function nowIso(): string {
@@ -409,6 +475,32 @@ class AuthService {
     return { ok: true };
   }
 
+  async createSessionToken(): Promise<string | null> {
+    const stateResult = await this.readState();
+    const state = stateResult.state;
+
+    if (stateResult.locked || !state.initialized || !state.passwordSalt || !state.passwordHash) {
+      return null;
+    }
+
+    return buildSessionToken(state.passwordSalt, state.passwordHash);
+  }
+
+  async hasValidSession(token: string): Promise<boolean> {
+    if (!token.trim()) {
+      return false;
+    }
+
+    const stateResult = await this.readState();
+    const state = stateResult.state;
+
+    if (stateResult.locked || !state.initialized || !state.passwordSalt || !state.passwordHash) {
+      return false;
+    }
+
+    return validateSessionToken(token, state.passwordSalt, state.passwordHash);
+  }
+
   private createToken(purpose: TokenPurpose, ttlMs: number): { token: string; record: AuthTokenRecord } {
     const token = randomBytes(24).toString("base64url");
     const createdAt = Date.now();
@@ -594,6 +686,14 @@ export async function completePasswordReset(token: string, password: string): Pr
 
 export async function login(password: string): Promise<LoginResult> {
   return authService.login(password);
+}
+
+export async function createAuthSessionToken(): Promise<string | null> {
+  return authService.createSessionToken();
+}
+
+export async function validateAuthSessionToken(token: string): Promise<boolean> {
+  return authService.hasValidSession(token);
 }
 
 export function getPasswordPolicy(): PasswordPolicy {

@@ -11,8 +11,9 @@ This baseline includes:
 - Docker Compose baseline for app + local self-hosted Supabase dependencies
 - CI workflow (lint, typecheck, test)
 - Local auth bootstrap and recovery flows (one-time setup/reset tokens)
+- Meal Library MVP with local-file persistence (`.data/meal-library.json`) and async AI extraction jobs
 
-> Scope note: this is platform scaffolding only. Auth and feature implementation are intentionally out of scope for this baseline.
+> Scope note: this started as platform scaffolding and now includes a local auth flow plus the Meal Library + AI extraction MVP.
 
 ## Requirements
 
@@ -108,6 +109,63 @@ Notes:
 
 - setup/reset tokens are short-lived and single-use
 - setup/reset/login lifecycle events are appended to `AUTH_AUDIT_LOG_FILE` (default: `.data/auth-audit.log`)
+
+## Meal Library MVP (`/library`)
+
+This app now ships a practical meal library MVP with local-file persistence in `.data` (same storage pattern as auth, no DB migrations required).
+
+### Data model
+
+Meals include:
+
+- `name`
+- `recipe`
+- `url` (optional)
+- `photo` (stored as `photoUrl`, optional)
+
+The library supports:
+
+- search by meal name and ingredient text
+- sort by name (asc/desc), created (newest/oldest), updated (newest/oldest)
+- grid/table toggle with preference remembered in `localStorage`
+- create and edit meal flows
+
+### Manual AI extraction
+
+Each meal has an **Extract ingredients** action that enqueues an async job and returns immediately.
+
+Persisted status lifecycle:
+
+- `pending`
+- `running`
+- `success`
+- `failed`
+
+Meal save/edit remains independent from extraction success/failure.
+
+### AI Admin (`/admin/ai`)
+
+`/admin/ai` provides shared app-level Gemini configuration:
+
+- API token
+- available models
+- active model
+
+Current MVP behavior requires a valid local admin session.
+
+If no Gemini token is configured, extraction fails gracefully and the job/meal status is marked `failed` with an actionable message.
+
+### URL-first recipe fetch safety model
+
+When a meal has a recipe URL, extraction first attempts to read recipe text from that URL, then falls back to saved `meal.recipe` text on any fetch/safety failure.
+
+URL fetch protections are enabled by default:
+
+- only `http`/`https` protocols are allowed
+- DNS hostnames are supported, but DNS resolution is filtered at connect time to block local/private/link-local/metadata/internal targets
+- if DNS resolves only blocked IPs, the request is rejected
+- redirects are not followed
+- response timeout, content-type guard, and streamed byte cap are enforced
 
 ## Developer scripts
 

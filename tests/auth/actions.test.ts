@@ -3,11 +3,16 @@ import { describe, expect, it, vi } from "vitest";
 const loginMock = vi.fn();
 const completeSetupMock = vi.fn();
 const completePasswordResetMock = vi.fn();
+const setAuthSessionCookieMock = vi.fn();
 
 vi.mock("@/lib/auth", () => ({
   login: loginMock,
   completeSetup: completeSetupMock,
   completePasswordReset: completePasswordResetMock,
+}));
+
+vi.mock("@/lib/auth-session", () => ({
+  setAuthSessionCookie: setAuthSessionCookieMock,
 }));
 
 describe("Auth form server actions", () => {
@@ -74,5 +79,21 @@ describe("Auth form server actions", () => {
     expect(result.message).toMatch(/setup complete/i);
     expect(result.nextHref).toBe("/login");
     expect(result.nextLabel).toMatch(/login/i);
+  });
+
+  it("sets auth session cookie after successful login", async () => {
+    loginMock.mockResolvedValue({ ok: true });
+    setAuthSessionCookieMock.mockResolvedValue(true);
+
+    const module = await import("@/app/auth/actions");
+    const formState = await import("@/app/auth/form-state");
+
+    const formData = new FormData();
+    formData.set("password", "correct-password");
+
+    const result = await module.loginAction(formState.initialAuthFormState, formData);
+
+    expect(result.ok).toBe(true);
+    expect(setAuthSessionCookieMock).toHaveBeenCalledTimes(1);
   });
 });
