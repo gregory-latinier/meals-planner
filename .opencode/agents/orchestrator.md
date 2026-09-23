@@ -103,13 +103,25 @@ _Level: `ask`_ — confirm before changing status and adding comment.
 
 **On merge/close (Done)**  
 _Level: `auto`_ — triggered by confirmed merge.
-1. Set issue project `Status = Done`
-2. Verify `CHANGELOG.md` was updated before closing
+1. Merge PR using `--squash --delete-branch` to delete remote branch automatically
+2. Verify issue is closed (if not auto-closed, close manually with a comment)
+3. Set issue project `Status = Done`
+4. Verify `CHANGELOG.md` was updated before closing
+5. Delete local feature branch:
+   - `git checkout main && git pull`
+   - `git branch -d <feature-branch>` (use `-D` only if required and safe)
+6. Verify local branch is gone and report cleanup result
+
+**Safety guards for branch deletion:**
+- Never delete `main`
+- Never delete the currently checked-out branch before switching away
+- Only delete the PR head branch associated with the just-merged PR
 
 ### Hard rule
 A task is **not complete** until:
 - The issue is closed on GitHub, AND
-- The project card is in `Done`
+- The project card is in `Done`, AND
+- The feature branch is deleted both locally and remotely
 
 ## OSS quality gates
 

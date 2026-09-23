@@ -30,6 +30,13 @@ permission:
     git log *: allow
     git tag *: allow
     git status: allow
+    git checkout main: allow
+    git pull: allow
+    git fetch --prune: allow
+    git branch -d *: allow
+    git branch -D *: allow
+    git branch --show-current: allow
+    git branch *: allow
     gh pr merge *: ask
     gh release create *: ask
     "*": deny
@@ -128,6 +135,40 @@ gh project item-edit \
   --single-select-option-id <option-id>
 ```
 
+### Post-merge branch cleanup (mandatory after every merge)
+
+After a PR is merged:
+
+```bash
+# 1. Merge PR with remote branch deletion
+gh pr merge <N> \
+  --repo gregory-latinier/meals-planner \
+  --squash \
+  --delete-branch
+
+# 2. Switch to main and pull
+git checkout main
+git pull
+
+# 3. Delete local feature branch
+git branch -d <feature-branch>
+# If not fully merged according to git, use -D (only for squash-merged branches):
+# git branch -D <feature-branch>
+
+# 4. Prune stale remote tracking refs
+git fetch --prune
+
+# 5. Verify
+git branch -a | grep <feature-branch>
+# Should produce no output if cleanup succeeded
+```
+
+**Safety guards — always enforce:**
+- Never delete `main`
+- Always `git checkout main` before deleting the feature branch
+- Only delete the branch that was the PR head (`headRefName` from `gh pr view`)
+- Confirm deletion succeeded before reporting Done
+
 ### Idempotent sync routine
 
 Before any project operation:
@@ -153,6 +194,8 @@ Before any project operation:
 - Follow the label taxonomy defined in the `github-maintainer` skill exactly
 - Never close an issue without a clear reason and a closing comment
 - Never merge a PR — that is the orchestrator's decision with reviewer confirmation
+- Always delete the feature branch (remote via `--delete-branch`, local via `git branch -d`) after merge
+- Never delete `main` or the currently checked-out branch before switching away
 - Always verify field IDs and option IDs from the live project before setting them — never hardcode
 - Sync is idempotent: running the same sync twice must produce the same result
 - Do not edit source code files
