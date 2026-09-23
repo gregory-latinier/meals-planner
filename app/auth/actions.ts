@@ -2,6 +2,7 @@
 
 import { completePasswordReset, completeSetup, login } from "@/lib/auth";
 import type { AuthFormState } from "@/app/auth/form-state";
+import { setAuthSessionCookie } from "@/lib/auth-session";
 
 function readField(formData: FormData, name: string): string {
   const value = formData.get(name);
@@ -29,6 +30,15 @@ export async function loginAction(_prevState: AuthFormState, formData: FormData)
     return {
       ok: false,
       error: result.error,
+    };
+  }
+
+  const sessionSet = await setAuthSessionCookie();
+
+  if (!sessionSet) {
+    return {
+      ok: false,
+      error: "Login succeeded but session setup failed. Retry login.",
     };
   }
 

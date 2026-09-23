@@ -1,6 +1,6 @@
 # Product Roadmap
 
-**Last updated**: 2026-09-22
+**Last updated**: 2026-09-23
 
 ## Now
 
@@ -16,6 +16,13 @@
 - Grocery list generation from planned meals.
 - Realtime multi-user grocery list updates.
 - PWA installability and mobile UX polish.
+- Meal Library v1:
+  - Search by meal name and ingredient text
+  - Sort by name/created/updated
+  - Grid/Table toggle with remembered preference
+  - Meal fields: name, recipe, URL, photo
+  - Manual async AI extraction (Gemini) for ingredients + per-serving suggested amounts
+  - AI admin page for shared token/model configuration
 
 ## Later
 
