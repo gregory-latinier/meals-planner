@@ -1,0 +1,25 @@
+# Development stack — PostgreSQL only.
+# Web and realtime services run directly on the host via pnpm.
+# Start with: docker compose up -d
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mpuser
+      POSTGRES_PASSWORD: mppassword
+      POSTGRES_DB: mealsplanner
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mpuser -d mealsplanner"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  db_data:
