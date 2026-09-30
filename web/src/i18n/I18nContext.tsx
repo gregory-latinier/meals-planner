@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState } from 'react'
+import React, { createContext, useContext, useEffect, useState } from 'react'
 import type { Locale, Messages } from './types'
 import {
   getMessages,
@@ -23,11 +23,16 @@ const I18nContext = createContext<I18nContextValue>({
 })
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(() => {
-    // Lazy initializer: runs once on mount (client only)
-    if (typeof window === 'undefined') return DEFAULT_LOCALE
-    return readStoredLocale() ?? detectLocale()
-  })
+  const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE)
+
+  useEffect(() => {
+    const nextLocale = readStoredLocale() ?? detectLocale()
+
+    if (nextLocale !== DEFAULT_LOCALE) {
+      // Defer update to avoid hydration mismatch and satisfy hook lint rules.
+      queueMicrotask(() => setLocaleState(nextLocale))
+    }
+  }, [])
 
   function setLocale(next: Locale) {
     setLocaleState(next)

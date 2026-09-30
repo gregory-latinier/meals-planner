@@ -41,6 +41,33 @@ export interface Messages {
     disconnected: string
     lastEvent: string
   }
+  cookbooks: {
+    title: string
+    subtitle: string
+    sortLabel: string
+    sortUpdated: string
+    sortName: string
+    orderAsc: string
+    orderDesc: string
+    recipeCount: string
+    noCookbooksTitle: string
+    noCookbooksSubtitle: string
+    addFabAriaLabel: string
+    addChooserTitle: string
+    addRecipeOption: string
+    addCookbookOption: string
+    recipeComingSoon: string
+    createDialogTitle: string
+    nameLabel: string
+    cancelButton: string
+    createButton: string
+    errors: {
+      required: string
+      maxLength: string
+      duplicateGeneric: string
+      createFailed: string
+    }
+  }
   nav: {
     logout: string
     realtimeConnected: string

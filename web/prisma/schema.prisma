@@ -18,6 +18,7 @@ model Household {
 
   sessions      Session[]
   resetTokens   PasswordResetToken[]
+  cookbooks     Cookbook[]
 }
 
 model Session {
@@ -42,4 +43,18 @@ model PasswordResetToken {
   createdAt   DateTime  @default(now())
 
   @@index([token])
+}
+
+model Cookbook {
+  id             String    @id @default(cuid())
+  householdId    String
+  household      Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  name           String    @db.VarChar(500)
+  nameNormalized String    @db.VarChar(500)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([householdId])
+  @@index([updatedAt])
+  @@unique([householdId, nameNormalized])
 }
