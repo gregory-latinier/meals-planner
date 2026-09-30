@@ -13,16 +13,22 @@ import {
   CardContent,
   Chip,
   Tooltip,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material'
 import LogoutIcon from '@mui/icons-material/Logout'
 import WifiIcon from '@mui/icons-material/Wifi'
 import WifiOffIcon from '@mui/icons-material/WifiOff'
 import { useRouter } from 'next/navigation'
 import { useRealtime } from '@/hooks/useRealtime'
+import { useT } from '@/i18n/I18nContext'
+import type { Locale } from '@/i18n/types'
+import { SUPPORTED_LOCALES } from '@/i18n/types'
 
 export default function DashboardClient() {
   const router = useRouter()
   const { connected, lastEvent } = useRealtime()
+  const { t, locale, setLocale } = useT()
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -30,15 +36,34 @@ export default function DashboardClient() {
     router.refresh()
   }
 
+  function handleLocaleChange(_: React.MouseEvent<HTMLElement>, value: Locale | null) {
+    if (value) setLocale(value)
+  }
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppBar position="sticky" color="inherit">
         <Toolbar>
           <Typography variant="h6" color="primary" sx={{ fontWeight: 700, flexGrow: 1 }}>
-            🥗 Meals Planner
+            🥗 {t.common.appName}
           </Typography>
 
-          <Tooltip title={connected ? 'Realtime: connected' : 'Realtime: disconnected'}>
+          {/* Language switcher */}
+          <ToggleButtonGroup
+            value={locale}
+            exclusive
+            onChange={handleLocaleChange}
+            size="small"
+            sx={{ mr: 2 }}
+          >
+            {SUPPORTED_LOCALES.map((loc) => (
+              <ToggleButton key={loc} value={loc} sx={{ px: 1.5, py: 0.25, textTransform: 'uppercase', fontSize: '0.75rem' }}>
+                {loc}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+
+          <Tooltip title={connected ? t.nav.realtimeConnected : t.nav.realtimeDisconnected}>
             <Box sx={{ mr: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
               {connected ? (
                 <WifiIcon fontSize="small" color="success" />
@@ -46,12 +71,12 @@ export default function DashboardClient() {
                 <WifiOffIcon fontSize="small" color="error" />
               )}
               <Typography variant="caption" color={connected ? 'success.main' : 'error.main'}>
-                {connected ? 'Live' : 'Offline'}
+                {connected ? t.nav.live : t.nav.offline}
               </Typography>
             </Box>
           </Tooltip>
 
-          <Tooltip title="Logout">
+          <Tooltip title={t.nav.logout}>
             <IconButton onClick={handleLogout} color="inherit">
               <LogoutIcon />
             </IconButton>
@@ -61,21 +86,21 @@ export default function DashboardClient() {
 
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-          Welcome back
+          {t.dashboard.welcome}
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          Your household meal planning dashboard
+          {t.dashboard.subtitle}
         </Typography>
 
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 4 }}>
             <Card elevation={0}>
               <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ mb: 1 }}>Weekly Meal Plan</Typography>
+                <Typography variant="h6" sx={{ mb: 1 }}>{t.dashboard.weeklyMealPlan.title}</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Plan your meals for the week ahead.
+                  {t.dashboard.weeklyMealPlan.description}
                 </Typography>
-                <Chip label="Coming soon" size="small" color="primary" variant="outlined" />
+                <Chip label={t.dashboard.comingSoon} size="small" color="primary" variant="outlined" />
               </CardContent>
             </Card>
           </Grid>
@@ -83,11 +108,11 @@ export default function DashboardClient() {
           <Grid size={{ xs: 12, md: 4 }}>
             <Card elevation={0}>
               <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ mb: 1 }}>Grocery List</Typography>
+                <Typography variant="h6" sx={{ mb: 1 }}>{t.dashboard.groceryList.title}</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Auto-generate your shopping list from your meal plan.
+                  {t.dashboard.groceryList.description}
                 </Typography>
-                <Chip label="Coming soon" size="small" color="secondary" variant="outlined" />
+                <Chip label={t.dashboard.comingSoon} size="small" color="secondary" variant="outlined" />
               </CardContent>
             </Card>
           </Grid>
@@ -95,18 +120,18 @@ export default function DashboardClient() {
           <Grid size={{ xs: 12, md: 4 }}>
             <Card elevation={0}>
               <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ mb: 1 }}>Realtime Status</Typography>
+                <Typography variant="h6" sx={{ mb: 1 }}>{t.dashboard.realtimeStatus.title}</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Live sync across all household devices.
+                  {t.dashboard.realtimeStatus.description}
                 </Typography>
                 <Chip
-                  label={connected ? 'Connected' : 'Disconnected'}
+                  label={connected ? t.dashboard.connected : t.dashboard.disconnected}
                   size="small"
                   color={connected ? 'success' : 'error'}
                 />
                 {lastEvent && (
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                    Last event: {lastEvent}
+                    {t.dashboard.lastEvent}: {lastEvent}
                   </Typography>
                 )}
               </CardContent>

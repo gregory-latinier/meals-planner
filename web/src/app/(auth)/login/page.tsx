@@ -15,9 +15,16 @@ import {
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { useRouter } from 'next/navigation'
+import { useT } from '@/i18n/I18nContext'
+
+const API_ERROR_MAP: Record<string, string> = {
+  'Incorrect password.': 'errorIncorrect',
+  'Too many attempts. Please try again later.': 'errorTooMany',
+}
 
 export default function LoginPage() {
   const router = useRouter()
+  const { t } = useT()
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -37,14 +44,20 @@ export default function LoginPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || 'Login failed. Please try again.')
+        const mappedKey = data.error ? API_ERROR_MAP[data.error] : undefined
+        const loginT = t.auth.login
+        setError(
+          mappedKey && mappedKey in loginT
+            ? loginT[mappedKey as keyof typeof loginT]
+            : loginT.errorGeneric
+        )
         return
       }
 
       router.push('/dashboard')
       router.refresh()
     } catch {
-      setError('Network error. Please try again.')
+      setError(t.auth.login.errorNetwork)
     } finally {
       setLoading(false)
     }
@@ -57,25 +70,25 @@ export default function LoginPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: (t) =>
-          `linear-gradient(135deg, ${alpha(t.palette.primary.main, 0.08)} 0%, ${alpha(t.palette.secondary.main, 0.06)} 100%)`,
+        background: (theme) =>
+          `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.08)} 0%, ${alpha(theme.palette.secondary.main, 0.06)} 100%)`,
         p: 2,
       }}
     >
       <Container maxWidth="xs">
         <Box sx={{ textAlign: 'center', mb: 4 }}>
           <Typography variant="h4" color="primary" sx={{ fontWeight: 700 }}>
-            🥗 Meals Planner
+            🥗 {t.common.appName}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Your household meal planning hub
+            {t.common.appTagline}
           </Typography>
         </Box>
 
         <Card elevation={0}>
           <CardContent sx={{ p: 4 }}>
             <Typography variant="h6" sx={{ mb: 3, textAlign: 'center' }}>
-              Welcome back
+              {t.auth.login.title}
             </Typography>
 
             {error && (
@@ -87,7 +100,7 @@ export default function LoginPage() {
             <form onSubmit={handleSubmit}>
               <TextField
                 fullWidth
-                label="Household Password"
+                label={t.auth.login.passwordLabel}
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -103,13 +116,13 @@ export default function LoginPage() {
                 size="large"
                 disabled={loading || !password}
               >
-                {loading ? <CircularProgress size={24} color="inherit" /> : 'Enter'}
+                {loading ? <CircularProgress size={24} color="inherit" /> : t.auth.login.submitButton}
               </Button>
             </form>
 
             <Box sx={{ mt: 2, textAlign: 'center' }}>
               <Link href="/forgot-password" variant="body2" color="text.secondary">
-                Forgot password?
+                {t.auth.login.forgotPassword}
               </Link>
             </Box>
           </CardContent>
