@@ -272,6 +272,44 @@ cat backup.sql | docker exec -i meals-planner-db-1 psql -U mpuser mealsplanner
 | Login fails | `SESSION_SECRET` must be stable across restarts |
 | Migration errors | `DATABASE_URL` must use `db` as hostname (not `localhost`) |
 
+## Feature Development Workflow
+
+Feature requests are handled automatically by an agent chain. You do not need to manually hand off between phases.
+
+### How it works
+
+When you describe a feature request (e.g. "add grocery list", "build a settings page", "implement recipe search"), the default agent detects the intent and runs these phases without waiting for input between them:
+
+| Phase | Agent | What it does |
+|---|---|---|
+| 1 — Planning | `@planner` | Produces plan, acceptance criteria, tech design |
+| 2 — Implementation | `@implementer` | Writes code, runs migration, writes tests |
+| 3 — Code Review | `@reviewer` | Reviews for correctness, types, i18n, security, test coverage |
+| 4 — Validation | `@validator` | Runs `lint`, `tsc`, `test`, `build` — fixes and retries on failure |
+| 5 — Manual Testing Gate | `@release-gatekeeper` | **Stops here** — presents checklist, waits for your approval |
+
+### Manual testing gate
+
+After automated validation passes, `@release-gatekeeper` presents:
+- A release review report
+- The full acceptance criteria checklist to test manually
+- Step-by-step manual testing instructions
+
+**Nothing is committed or pushed until you explicitly approve.**
+
+### Approval commands
+
+| Command | Effect |
+|---|---|
+| `APPROVED:COMMIT` | Runs final gate suite, stages, and commits |
+| `APPROVED:PUBLISH` | Runs final gate suite, commits, and pushes to `main` |
+
+### Non-feature requests
+
+Questions, debugging help, explanations, and config changes are handled directly without starting the chain.
+
+---
+
 ## Auth & Password Reset
 
 No email required — household-only auth. To reset the password:
