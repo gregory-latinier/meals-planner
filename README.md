@@ -274,28 +274,24 @@ cat backup.sql | docker exec -i meals-planner-db-1 psql -U mpuser mealsplanner
 
 ## Feature Development Workflow
 
-Feature requests are handled automatically by an agent chain. You do not need to manually hand off between phases.
+Feature requests are handled **automatically** — no manual agent handoff needed.
 
-### How it works
+### How a feature request works
 
-When you describe a feature request (e.g. "add grocery list", "build a settings page", "implement recipe search"), the default agent detects the intent and runs these phases without waiting for input between them:
+When you describe a feature (e.g. "add grocery list", "build a settings page", "implement recipe search"), the default agent `feature` detects the intent and runs this chain **without pausing between phases**:
 
-| Phase | Agent | What it does |
-|---|---|---|
-| 1 — Planning | `@planner` | Produces plan, acceptance criteria, tech design |
-| 2 — Implementation | `@implementer` | Writes code, runs migration, writes tests |
-| 3 — Code Review | `@reviewer` | Reviews for correctness, types, i18n, security, test coverage |
-| 4 — Validation | `@validator` | Runs `lint`, `tsc`, `test`, `build` — fixes and retries on failure |
-| 5 — Manual Testing Gate | `@release-gatekeeper` | **Stops here** — presents checklist, waits for your approval |
+```
+Your prompt
+  └─▶ [1] planner          — produces plan, acceptance criteria, tech design
+        └─▶ [2] implementer  — writes code, runs migration, writes tests
+              └─▶ [3] reviewer — reviews correctness, types, i18n, security, test coverage
+                    └─▶ [4] validator — runs lint / tsc / test / build; fixes and retries
+                          └─▶ [5] release-gatekeeper — STOPS HERE
+                                    presents manual testing checklist
+                                    waits for your explicit approval
+```
 
-### Manual testing gate
-
-After automated validation passes, `@release-gatekeeper` presents:
-- A release review report
-- The full acceptance criteria checklist to test manually
-- Step-by-step manual testing instructions
-
-**Nothing is committed or pushed until you explicitly approve.**
+**Nothing is committed or pushed until you reply with an approval command.**
 
 ### Approval commands
 
@@ -306,7 +302,28 @@ After automated validation passes, `@release-gatekeeper` presents:
 
 ### Non-feature requests
 
-Questions, debugging help, explanations, and config changes are handled directly without starting the chain.
+Questions, debugging help, explanations, and quick fixes are handled directly by `feature` without starting the chain.
+
+---
+
+### Agent map
+
+| Agent | Mode | Role |
+|---|---|---|
+| `feature` | **default primary** | Orchestrator — detects feature intent and drives the chain |
+| `planner` | chain step 1 | Produces plan + acceptance criteria |
+| `implementer` | chain step 2 | Writes all code, migration, tests |
+| `reviewer` | chain step 3 | Reviews types, i18n, security, test coverage |
+| `validator` | chain step 4 | Runs lint / tsc / test / build |
+| `release-gatekeeper` | chain step 5 | Presents manual test report, gates on approval, commits/pushes |
+| `architect` | optional specialist | Greenfield project bootstrap — invoke with `/new-project` |
+| `tradeoff-critic` | optional specialist | Pressure-tests a plan before coding — invoke with `@tradeoff-critic` |
+| `blocker-scout` | optional specialist | Identifies blockers before coding — invoke with `@blocker-scout` |
+| `mockup-analyst` | optional specialist | Converts UI mockups into requirements — invoke with `@mockup-analyst` |
+| `test-engineer` | optional specialist | Deeper test coverage — invoke with `@test-engineer` |
+| ~~`feature-planner`~~ | deprecated | Replaced by `planner` — do not use |
+
+Specialist agents are hidden from the normal agent picker. They can still be invoked explicitly by name when needed.
 
 ---
 

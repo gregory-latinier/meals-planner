@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   Alert,
   AppBar,
@@ -9,7 +9,6 @@ import {
   Card,
   CardContent,
   Container,
-  Drawer,
   Fab,
   FormControl,
   Grid,
@@ -23,10 +22,11 @@ import {
   Toolbar,
   Tooltip,
   Typography,
+  Drawer,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
-import MenuBookIcon from '@mui/icons-material/MenuBook'
-import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu'
+import EditIcon from '@mui/icons-material/Edit'
+import DeleteIcon from '@mui/icons-material/Delete'
 import LogoutIcon from '@mui/icons-material/Logout'
 import WifiIcon from '@mui/icons-material/Wifi'
 import WifiOffIcon from '@mui/icons-material/WifiOff'
@@ -40,25 +40,18 @@ import MobileBottomNav from '@/components/MobileBottomNav'
 type SortField = 'updatedAt' | 'name'
 type SortOrder = 'asc' | 'desc'
 
-interface Cookbook {
+interface Store {
   id: string
   name: string
   createdAt: string
   updatedAt: string
-  recipeCount: number
 }
 
-const SORT_STORAGE_KEY = 'mp_cookbooks_sort'
+const SORT_STORAGE_KEY = 'mp_stores_sort'
 const MAX_NAME_LENGTH = 500
 const DEFAULT_SORT_BY: SortField = 'updatedAt'
 const DEFAULT_ORDER: SortOrder = 'desc'
 
-/** Formats the recipe count label using the i18n template. */
-function formatRecipeCount(template: string, count: number): string {
-  return template.replace('{{count}}', String(count))
-}
-
-/** Reads persisted cookbook sorting preferences from localStorage. */
 function readStoredSort(): { sortBy: SortField; order: SortOrder } {
   const raw = window.localStorage.getItem(SORT_STORAGE_KEY)
   if (!raw) {
@@ -75,12 +68,24 @@ function readStoredSort(): { sortBy: SortField; order: SortOrder } {
   }
 }
 
-/** Persists cookbook sorting preferences to localStorage. */
 function writeStoredSort(sortBy: SortField, order: SortOrder): void {
   window.localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify({ sortBy, order }))
 }
 
-export default function CookbooksClient() {
+function sortStores(stores: Store[], sortBy: SortField, order: SortOrder): Store[] {
+  return [...stores].sort((a, b) => {
+    if (sortBy === 'updatedAt') {
+      const aTs = new Date(a.updatedAt).getTime()
+      const bTs = new Date(b.updatedAt).getTime()
+      return order === 'desc' ? bTs - aTs : aTs - bTs
+    }
+
+    const cmp = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    return order === 'asc' ? cmp : -cmp
+  })
+}
+
+export default function StoresClient() {
   const router = useRouter()
   const { connected } = useRealtime()
   const { t, locale, setLocale } = useT()
@@ -97,15 +102,21 @@ export default function CookbooksClient() {
 
   const [sortBy, setSortBy] = useState<SortField>(DEFAULT_SORT_BY)
   const [order, setOrder] = useState<SortOrder>(DEFAULT_ORDER)
-  const [cookbooks, setCookbooks] = useState<Cookbook[]>([])
+  const [stores, setStores] = useState<Store[]>([])
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState('')
 
-  const [chooserOpen, setChooserOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
-  const [name, setName] = useState('')
+  const [createName, setCreateName] = useState('')
   const [createError, setCreateError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const [creating, setCreating] = useState(false)
+
+  const [editOpen, setEditOpen] = useState(false)
+  const [editingStoreId, setEditingStoreId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editError, setEditError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   // Hydration-safe mount effect: synchronise sort state with localStorage after
   // the first client render. Both server and first client render use defaults,
@@ -127,40 +138,42 @@ export default function CookbooksClient() {
     if (!isMounted) return
     let active = true
 
-    async function fetchCookbooks() {
+    async function fetchStores() {
       setLoading(true)
       setListError('')
 
       try {
         const params = new URLSearchParams({ sortBy, order })
-        const res = await fetch(`/api/cookbooks?${params.toString()}`)
+        const res = await fetch(`/api/stores?${params.toString()}`)
         const data = await res.json()
 
         if (!res.ok) {
-          if (active) setListError(t.common.error)
+          if (active) {
+            setListError(t.common.error)
+          }
           return
         }
 
         if (active) {
-          setCookbooks(data.cookbooks ?? [])
+          setStores(data.stores ?? [])
         }
       } catch {
         if (active) {
           setListError(t.common.error)
         }
       } finally {
-        if (active) setLoading(false)
+        if (active) {
+          setLoading(false)
+        }
       }
     }
 
-    fetchCookbooks()
+    fetchStores()
 
     return () => {
       active = false
     }
   }, [sortBy, order, t.common.error, isMounted])
-
-  const recipeCountLabel = useMemo(() => t.cookbooks.recipeCount, [t.cookbooks.recipeCount])
 
   function handleLocaleChange(_: React.MouseEvent<HTMLElement>, value: Locale | null) {
     if (value) setLocale(value)
@@ -172,30 +185,44 @@ export default function CookbooksClient() {
     router.refresh()
   }
 
-  function openCreateDrawer() {
-    setChooserOpen(false)
-    setCreateError('')
-    setName('')
-    setCreateOpen(true)
-  }
-
-  function closeCreateDrawer() {
-    if (!submitting) {
-      setCreateOpen(false)
-      setCreateError('')
-      setName('')
-    }
-  }
-
-  function getClientValidationError(trimmed: string): string {
-    if (!trimmed) return t.cookbooks.errors.required
-    if (trimmed.length > MAX_NAME_LENGTH) return t.cookbooks.errors.maxLength
+  function getClientValidationError(trimmedName: string): string {
+    if (!trimmedName) return t.stores.errors.required
+    if (trimmedName.length > MAX_NAME_LENGTH) return t.stores.errors.maxLength
     return ''
   }
 
-  async function handleCreateCookbook(e: React.FormEvent) {
+  function closeCreateDrawer() {
+    if (creating) {
+      return
+    }
+
+    setCreateOpen(false)
+    setCreateName('')
+    setCreateError('')
+  }
+
+  function openEditDrawer(store: Store) {
+    setEditingStoreId(store.id)
+    setEditName(store.name)
+    setEditError('')
+    setEditOpen(true)
+  }
+
+  function closeEditDrawer() {
+    if (saving) {
+      return
+    }
+
+    setEditOpen(false)
+    setEditingStoreId(null)
+    setEditName('')
+    setEditError('')
+  }
+
+  async function handleCreateStore(e: React.FormEvent) {
     e.preventDefault()
-    const trimmed = name.trim()
+
+    const trimmed = createName.trim()
     const validationError = getClientValidationError(trimmed)
 
     if (validationError) {
@@ -203,61 +230,135 @@ export default function CookbooksClient() {
       return
     }
 
-    setSubmitting(true)
+    setCreating(true)
     setCreateError('')
 
     try {
-      const res = await fetch('/api/cookbooks', {
+      const res = await fetch('/api/stores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: trimmed }),
       })
-
       const data = await res.json()
 
       if (!res.ok) {
         if (res.status === 409) {
-          setCreateError(t.cookbooks.errors.duplicateGeneric)
+          setCreateError(t.stores.errors.duplicateGeneric)
           return
         }
 
         if (res.status === 400 && typeof data?.error === 'string') {
           if (data.error.includes('required')) {
-            setCreateError(t.cookbooks.errors.required)
+            setCreateError(t.stores.errors.required)
             return
           }
           if (data.error.includes('500 characters')) {
-            setCreateError(t.cookbooks.errors.maxLength)
+            setCreateError(t.stores.errors.maxLength)
             return
           }
         }
 
-        setCreateError(t.cookbooks.errors.createFailed)
+        setCreateError(t.stores.errors.createFailed)
         return
       }
 
-      const created = data.cookbook as Cookbook
-
-      setCookbooks((prev) => {
-        const next = [created, ...prev]
-
-        return next.sort((a, b) => {
-          if (sortBy === 'updatedAt') {
-            const aTs = new Date(a.updatedAt).getTime()
-            const bTs = new Date(b.updatedAt).getTime()
-            return order === 'desc' ? bTs - aTs : aTs - bTs
-          }
-
-          const cmp = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-          return order === 'asc' ? cmp : -cmp
-        })
-      })
-
+      const createdStore = data.store as Store
+      setStores((prev) => sortStores([createdStore, ...prev], sortBy, order))
       closeCreateDrawer()
     } catch {
-      setCreateError(t.cookbooks.errors.createFailed)
+      setCreateError(t.stores.errors.createFailed)
     } finally {
-      setSubmitting(false)
+      setCreating(false)
+    }
+  }
+
+  async function handleSaveStore(e: React.FormEvent) {
+    e.preventDefault()
+
+    if (!editingStoreId) {
+      return
+    }
+
+    const trimmed = editName.trim()
+    const validationError = getClientValidationError(trimmed)
+
+    if (validationError) {
+      setEditError(validationError)
+      return
+    }
+
+    setSaving(true)
+    setEditError('')
+
+    try {
+      const res = await fetch(`/api/stores/${editingStoreId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        if (res.status === 409) {
+          setEditError(t.stores.errors.duplicateGeneric)
+          return
+        }
+        if (res.status === 404) {
+          setEditError(t.stores.errors.notFound)
+          return
+        }
+        if (res.status === 400 && typeof data?.error === 'string') {
+          if (data.error.includes('required')) {
+            setEditError(t.stores.errors.required)
+            return
+          }
+          if (data.error.includes('500 characters')) {
+            setEditError(t.stores.errors.maxLength)
+            return
+          }
+        }
+
+        setEditError(t.stores.errors.updateFailed)
+        return
+      }
+
+      const updatedStore = data.store as Store
+      setStores((prev) =>
+        sortStores(
+          prev.map((store) => (store.id === updatedStore.id ? updatedStore : store)),
+          sortBy,
+          order
+        )
+      )
+      closeEditDrawer()
+    } catch {
+      setEditError(t.stores.errors.updateFailed)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDeleteStore(store: Store) {
+    if (!window.confirm(t.stores.deleteConfirm)) {
+      return
+    }
+
+    setDeletingId(store.id)
+    setListError('')
+
+    try {
+      const res = await fetch(`/api/stores/${store.id}`, { method: 'DELETE' })
+
+      if (!res.ok) {
+        setListError(res.status === 404 ? t.stores.errors.notFound : t.stores.errors.deleteFailed)
+        return
+      }
+
+      setStores((prev) => prev.filter((item) => item.id !== store.id))
+    } catch {
+      setListError(t.stores.errors.deleteFailed)
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -310,26 +411,26 @@ export default function CookbooksClient() {
 
       <Container maxWidth="lg" sx={{ py: 4, pb: { xs: 12, md: 4 } }}>
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-          {t.cookbooks.title}
+          {t.stores.title}
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          {t.cookbooks.subtitle}
+          {t.stores.subtitle}
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
           <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel id="cookbooks-sort-by-label">{t.cookbooks.sortLabel}</InputLabel>
+            <InputLabel id="stores-sort-by-label">{t.stores.sortLabel}</InputLabel>
             <Select
-              labelId="cookbooks-sort-by-label"
-              label={t.cookbooks.sortLabel}
+              labelId="stores-sort-by-label"
+              label={t.stores.sortLabel}
               value={sortBy}
               onChange={(event) => {
                 const value = event.target.value as SortField
                 setSortBy(value)
               }}
             >
-              <MenuItem value="updatedAt">{t.cookbooks.sortUpdated}</MenuItem>
-              <MenuItem value="name">{t.cookbooks.sortName}</MenuItem>
+              <MenuItem value="updatedAt">{t.stores.sortUpdated}</MenuItem>
+              <MenuItem value="name">{t.stores.sortName}</MenuItem>
             </Select>
           </FormControl>
 
@@ -341,8 +442,8 @@ export default function CookbooksClient() {
             }}
             size="small"
           >
-            <ToggleButton value="asc">{t.cookbooks.orderAsc}</ToggleButton>
-            <ToggleButton value="desc">{t.cookbooks.orderDesc}</ToggleButton>
+            <ToggleButton value="asc">{t.stores.orderAsc}</ToggleButton>
+            <ToggleButton value="desc">{t.stores.orderDesc}</ToggleButton>
           </ToggleButtonGroup>
         </Box>
 
@@ -352,29 +453,50 @@ export default function CookbooksClient() {
           </Alert>
         )}
 
-        {!loading && cookbooks.length === 0 ? (
+        {!loading && stores.length === 0 ? (
           <Card elevation={0}>
             <CardContent sx={{ p: 4, textAlign: 'center' }}>
               <Typography variant="h6" sx={{ mb: 1 }}>
-                {t.cookbooks.noCookbooksTitle}
+                {t.stores.noStoresTitle}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {t.cookbooks.noCookbooksSubtitle}
+                {t.stores.noStoresSubtitle}
               </Typography>
             </CardContent>
           </Card>
         ) : (
           <Grid container spacing={3}>
-            {cookbooks.map((cookbook) => (
-              <Grid key={cookbook.id} size={{ xs: 12, sm: 6, md: 4 }}>
+            {stores.map((store) => (
+              <Grid key={store.id} size={{ xs: 12, sm: 6, md: 4 }}>
                 <Card elevation={0}>
                   <CardContent sx={{ p: 3 }}>
-                    <Typography variant="h6" sx={{ mb: 1 }}>
-                      {cookbook.name}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {formatRecipeCount(recipeCountLabel, cookbook.recipeCount)}
-                    </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+                      <Typography variant="h6">{store.name}</Typography>
+                      <Box>
+                        <Tooltip title={t.stores.editButtonAriaLabel}>
+                          <IconButton
+                            size="small"
+                            aria-label={t.stores.editButtonAriaLabel}
+                            onClick={() => openEditDrawer(store)}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={t.stores.deleteButtonAriaLabel}>
+                          <span>
+                            <IconButton
+                              size="small"
+                              aria-label={t.stores.deleteButtonAriaLabel}
+                              onClick={() => handleDeleteStore(store)}
+                              disabled={deletingId === store.id}
+                              color="error"
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      </Box>
+                    </Box>
                   </CardContent>
                 </Card>
               </Grid>
@@ -383,59 +505,29 @@ export default function CookbooksClient() {
         )}
       </Container>
 
-      <MobileBottomNav value="cookbooks" />
+      <MobileBottomNav value="stores" />
 
       <Fab
         color="primary"
-        aria-label={t.cookbooks.addFabAriaLabel}
+        aria-label={t.stores.addFabAriaLabel}
         sx={{ position: 'fixed', bottom: { xs: 88, md: 24 }, right: 24 }}
-        onClick={() => setChooserOpen(true)}
+        onClick={() => {
+          setCreateError('')
+          setCreateName('')
+          setCreateOpen(true)
+        }}
       >
         <AddIcon />
       </Fab>
 
-      <Drawer anchor="bottom" open={chooserOpen} onClose={() => setChooserOpen(false)}>
-        <Box sx={{ p: 3, maxWidth: 720, mx: 'auto', width: '100%' }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            {t.cookbooks.addChooserTitle}
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <Tooltip title={t.cookbooks.recipeComingSoon}>
-                <span>
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    startIcon={<RestaurantMenuIcon />}
-                    disabled
-                  >
-                    {t.cookbooks.addRecipeOption}
-                  </Button>
-                </span>
-              </Tooltip>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <Button
-                fullWidth
-                variant="contained"
-                startIcon={<MenuBookIcon />}
-                onClick={openCreateDrawer}
-              >
-                {t.cookbooks.addCookbookOption}
-              </Button>
-            </Grid>
-          </Grid>
-        </Box>
-      </Drawer>
-
       <Drawer anchor="bottom" open={createOpen} onClose={closeCreateDrawer}>
         <Box
           component="form"
-          onSubmit={handleCreateCookbook}
+          onSubmit={handleCreateStore}
           sx={{ p: 3, maxWidth: 720, mx: 'auto', width: '100%' }}
         >
           <Typography variant="h6" sx={{ mb: 2 }}>
-            {t.cookbooks.createDialogTitle}
+            {t.stores.createDialogTitle}
           </Typography>
           {createError && (
             <Alert severity="error" sx={{ mb: 2 }}>
@@ -444,21 +536,57 @@ export default function CookbooksClient() {
           )}
           <TextField
             fullWidth
-            label={t.cookbooks.nameLabel}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
+            label={t.stores.nameLabel}
+            value={createName}
+            onChange={(event) => setCreateName(event.target.value)}
             autoFocus
             required
             slotProps={{ htmlInput: { maxLength: MAX_NAME_LENGTH } }}
-            disabled={submitting}
+            disabled={creating}
             sx={{ mb: 2 }}
           />
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <Button onClick={closeCreateDrawer} disabled={submitting}>
-              {t.cookbooks.cancelButton}
+            <Button onClick={closeCreateDrawer} disabled={creating}>
+              {t.stores.cancelButton}
             </Button>
-            <Button type="submit" variant="contained" disabled={submitting}>
-              {t.cookbooks.createButton}
+            <Button type="submit" variant="contained" disabled={creating}>
+              {t.stores.createButton}
+            </Button>
+          </Box>
+        </Box>
+      </Drawer>
+
+      <Drawer anchor="bottom" open={editOpen} onClose={closeEditDrawer}>
+        <Box
+          component="form"
+          onSubmit={handleSaveStore}
+          sx={{ p: 3, maxWidth: 720, mx: 'auto', width: '100%' }}
+        >
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            {t.stores.editDialogTitle}
+          </Typography>
+          {editError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {editError}
+            </Alert>
+          )}
+          <TextField
+            fullWidth
+            label={t.stores.nameLabel}
+            value={editName}
+            onChange={(event) => setEditName(event.target.value)}
+            autoFocus
+            required
+            slotProps={{ htmlInput: { maxLength: MAX_NAME_LENGTH } }}
+            disabled={saving}
+            sx={{ mb: 2 }}
+          />
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+            <Button onClick={closeEditDrawer} disabled={saving}>
+              {t.stores.cancelButton}
+            </Button>
+            <Button type="submit" variant="contained" disabled={saving || !editingStoreId}>
+              {t.stores.saveButton}
             </Button>
           </Box>
         </Box>

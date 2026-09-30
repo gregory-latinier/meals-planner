@@ -68,12 +68,45 @@ export interface Messages {
       createFailed: string
     }
   }
+  stores: {
+    title: string
+    subtitle: string
+    sortLabel: string
+    sortUpdated: string
+    sortName: string
+    orderAsc: string
+    orderDesc: string
+    noStoresTitle: string
+    noStoresSubtitle: string
+    addFabAriaLabel: string
+    createDialogTitle: string
+    editDialogTitle: string
+    nameLabel: string
+    cancelButton: string
+    createButton: string
+    saveButton: string
+    deleteButton: string
+    editButtonAriaLabel: string
+    deleteButtonAriaLabel: string
+    deleteConfirm: string
+    errors: {
+      required: string
+      maxLength: string
+      duplicateGeneric: string
+      createFailed: string
+      updateFailed: string
+      deleteFailed: string
+      notFound: string
+    }
+  }
   nav: {
     logout: string
     realtimeConnected: string
     realtimeDisconnected: string
     live: string
     offline: string
+    cookbooksTab: string
+    storesTab: string
   }
 }
 
