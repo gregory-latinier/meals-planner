@@ -16,7 +16,7 @@ services:
       start_period: 10s
 
   init:
-    image: ${WEB_IMAGE:-gregorylatinier/meals-web:latest}
+    image: ${WEB_IMAGE:-ghcr.io/gregory-latinier/meals-web:latest}
     restart: no
     env_file: .env.prod
     environment:
@@ -45,7 +45,7 @@ services:
       "
 
   web:
-    image: ${WEB_IMAGE:-gregorylatinier/meals-web:latest}
+    image: ${WEB_IMAGE:-ghcr.io/gregory-latinier/meals-web:latest}
     restart: unless-stopped
     env_file: .env.prod
     environment:
@@ -65,7 +65,7 @@ services:
       start_period: 40s
 
   realtime:
-    image: ${REALTIME_IMAGE:-gregorylatinier/meals-realtime:latest}
+    image: ${REALTIME_IMAGE:-ghcr.io/gregory-latinier/meals-realtime:latest}
     restart: unless-stopped
     environment:
       PORT: "3001"
