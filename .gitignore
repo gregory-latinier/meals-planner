@@ -54,5 +54,6 @@ Dockerfile.web.dev
 
 # ── Misc ──────────────────────────────────────────────────────────────────────
 *.pem
+*.crt
 .opencode/
 opencode.json

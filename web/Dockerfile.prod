@@ -1,15 +1,24 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
+# Inject ZScaler CA so Prisma binary downloads succeed behind corporate proxy
+COPY zscaler-ca.crt /usr/local/share/ca-certificates/zscaler-ca.crt
+RUN apk add --no-cache ca-certificates wget openssl && update-ca-certificates
+ENV NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/zscaler-ca.crt
 RUN corepack enable && corepack prepare pnpm@10.10.0 --activate
-RUN apk add --no-cache wget
-# Copy workspace root
+# Copy workspace root files for lockfile
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .npmrc ./
 COPY web/package.json ./web/
-# Install only web dependencies
+# Copy schema before install so prisma postinstall can find it
+COPY web/prisma ./web/prisma
+# Install deps (postinstall runs prisma generate here)
 RUN pnpm install --frozen-lockfile --filter web
-COPY web ./web
-RUN pnpm --filter web exec prisma generate
-RUN pnpm --filter web build
+# Copy remaining sources
+COPY web/src ./web/src
+COPY web/public ./web/public
+COPY web/next.config.ts web/tsconfig.json web/postcss.config.mjs web/eslint.config.mjs ./web/
+# Build Next.js
+WORKDIR /app/web
+RUN ../node_modules/.bin/next build
 
 FROM node:20-alpine AS runner
 WORKDIR /app

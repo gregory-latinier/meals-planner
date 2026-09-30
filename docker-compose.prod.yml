@@ -15,10 +15,37 @@ services:
       retries: 5
       start_period: 10s
 
+  init:
+    image: ${WEB_IMAGE:-gregorylatinier/meals-web:latest}
+    restart: no
+    env_file: .env.prod
+    environment:
+      NODE_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "
+        npx prisma migrate deploy &&
+        node -e \"
+          const { PrismaClient } = require('@prisma/client');
+          const bcrypt = require('bcryptjs');
+          const prisma = new PrismaClient();
+          async function seed() {
+            const existing = await prisma.household.findFirst();
+            if (existing) { console.log('Household already exists — skipping seed.'); return; }
+            const pw = process.env.HOUSEHOLD_PASSWORD;
+            if (!pw) throw new Error('HOUSEHOLD_PASSWORD is required');
+            const hash = await bcrypt.hash(pw, 12);
+            const h = await prisma.household.create({ data: { passwordHash: hash } });
+            console.log('Household created: ' + h.id);
+          }
+          seed().catch(e => { console.error(e); process.exit(1); }).finally(() => prisma.\$disconnect());
+        \"
+      "
+
   web:
-    build:
-      context: .
-      dockerfile: web/Dockerfile.prod
+    image: ${WEB_IMAGE:-gregorylatinier/meals-web:latest}
     restart: unless-stopped
     env_file: .env.prod
     environment:
@@ -28,6 +55,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
       interval: 30s
@@ -36,9 +65,7 @@ services:
       start_period: 40s
 
   realtime:
-    build:
-      context: ./realtime
-      dockerfile: Dockerfile.prod
+    image: ${REALTIME_IMAGE:-gregorylatinier/meals-realtime:latest}
     restart: unless-stopped
     environment:
       PORT: "3001"
