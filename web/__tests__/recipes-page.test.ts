@@ -1,4 +1,5 @@
-import HomePage from '@/app/page'
+import RecipesPage from '@/app/recipes/page'
+import RecipesClient from '@/app/recipes/RecipesClient'
 import { getSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 
@@ -15,7 +16,7 @@ jest.mock('next/navigation', () => ({
 const mockedGetSession = getSession as jest.MockedFunction<typeof getSession>
 const mockedRedirect = redirect as jest.MockedFunction<typeof redirect>
 
-describe('HomePage', () => {
+describe('RecipesPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
   })
@@ -23,14 +24,16 @@ describe('HomePage', () => {
   it('redirects to /login when no session exists', async () => {
     mockedGetSession.mockResolvedValueOnce(null)
 
-    await expect(HomePage()).rejects.toThrow('REDIRECT:/login')
+    await expect(RecipesPage()).rejects.toThrow('REDIRECT:/login')
     expect(mockedRedirect).toHaveBeenCalledWith('/login')
   })
 
-  it('redirects authenticated users to /recipes', async () => {
+  it('renders recipes page for authenticated users', async () => {
     mockedGetSession.mockResolvedValueOnce({ id: 's1' } as Awaited<ReturnType<typeof getSession>>)
 
-    await expect(HomePage()).rejects.toThrow('REDIRECT:/recipes')
-    expect(mockedRedirect).toHaveBeenCalledWith('/recipes')
+    const result = await RecipesPage()
+
+    expect(mockedRedirect).not.toHaveBeenCalled()
+    expect(result.type).toBe(RecipesClient)
   })
 })

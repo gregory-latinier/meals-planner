@@ -54,7 +54,7 @@ export default function LoginPage() {
         return
       }
 
-      router.push('/cookbooks')
+      router.push('/recipes')
       router.refresh()
     } catch {
       setError(t.auth.login.errorNetwork)

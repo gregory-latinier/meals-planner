@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   Alert,
-  AppBar,
   Box,
   Button,
   Card,
@@ -13,32 +12,30 @@ import {
   Fab,
   FormControl,
   Grid,
-  IconButton,
   InputLabel,
   MenuItem,
   Select,
+  Tab,
+  Tabs,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
-  Toolbar,
   Tooltip,
   Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
+import GridViewIcon from '@mui/icons-material/GridView'
 import MenuBookIcon from '@mui/icons-material/MenuBook'
 import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu'
-import LogoutIcon from '@mui/icons-material/Logout'
-import WifiIcon from '@mui/icons-material/Wifi'
-import WifiOffIcon from '@mui/icons-material/WifiOff'
+import ViewListIcon from '@mui/icons-material/ViewList'
 import { useRouter } from 'next/navigation'
-import { useRealtime } from '@/hooks/useRealtime'
+import AppTopBar from '@/components/AppTopBar'
 import { useT } from '@/i18n/I18nContext'
-import { SUPPORTED_LOCALES } from '@/i18n/types'
-import type { Locale } from '@/i18n/types'
 import MobileBottomNav from '@/components/MobileBottomNav'
 
 type SortField = 'updatedAt' | 'name'
 type SortOrder = 'asc' | 'desc'
+type ViewMode = 'list' | 'grid'
 
 interface Cookbook {
   id: string
@@ -49,9 +46,11 @@ interface Cookbook {
 }
 
 const SORT_STORAGE_KEY = 'mp_cookbooks_sort'
+const VIEW_STORAGE_KEY = 'mp_cookbooks_view'
 const MAX_NAME_LENGTH = 500
 const DEFAULT_SORT_BY: SortField = 'updatedAt'
 const DEFAULT_ORDER: SortOrder = 'desc'
+const DEFAULT_VIEW: ViewMode = 'grid'
 
 /** Formats the recipe count label using the i18n template. */
 function formatRecipeCount(template: string, count: number): string {
@@ -80,10 +79,20 @@ function writeStoredSort(sortBy: SortField, order: SortOrder): void {
   window.localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify({ sortBy, order }))
 }
 
+/** Reads persisted cookbook view preference from localStorage. */
+function readStoredView(): ViewMode {
+  const raw = window.localStorage.getItem(VIEW_STORAGE_KEY)
+  return raw === 'list' ? 'list' : DEFAULT_VIEW
+}
+
+/** Persists cookbook view preference to localStorage. */
+function writeStoredView(viewMode: ViewMode): void {
+  window.localStorage.setItem(VIEW_STORAGE_KEY, viewMode)
+}
+
 export default function CookbooksClient() {
   const router = useRouter()
-  const { connected } = useRealtime()
-  const { t, locale, setLocale } = useT()
+  const { t } = useT()
 
   // sortRef holds the persisted sort loaded from localStorage on the client.
   // We read it once at component mount via a ref so we never call setState
@@ -97,6 +106,7 @@ export default function CookbooksClient() {
 
   const [sortBy, setSortBy] = useState<SortField>(DEFAULT_SORT_BY)
   const [order, setOrder] = useState<SortOrder>(DEFAULT_ORDER)
+  const [viewMode, setViewMode] = useState<ViewMode>(DEFAULT_VIEW)
   const [cookbooks, setCookbooks] = useState<Cookbook[]>([])
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState('')
@@ -115,6 +125,7 @@ export default function CookbooksClient() {
     sortRef.current = stored
     setSortBy(stored.sortBy) // eslint-disable-line react-hooks/set-state-in-effect
     setOrder(stored.order)
+    setViewMode(readStoredView())
     setIsMounted(true)
   }, [])
 
@@ -122,6 +133,11 @@ export default function CookbooksClient() {
     if (!isMounted) return
     writeStoredSort(sortBy, order)
   }, [sortBy, order, isMounted])
+
+  useEffect(() => {
+    if (!isMounted) return
+    writeStoredView(viewMode)
+  }, [viewMode, isMounted])
 
   useEffect(() => {
     if (!isMounted) return
@@ -161,16 +177,6 @@ export default function CookbooksClient() {
   }, [sortBy, order, t.common.error, isMounted])
 
   const recipeCountLabel = useMemo(() => t.cookbooks.recipeCount, [t.cookbooks.recipeCount])
-
-  function handleLocaleChange(_: React.MouseEvent<HTMLElement>, value: Locale | null) {
-    if (value) setLocale(value)
-  }
-
-  async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' })
-    router.push('/login')
-    router.refresh()
-  }
 
   function openCreateDrawer() {
     setChooserOpen(false)
@@ -263,50 +269,7 @@ export default function CookbooksClient() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      <AppBar position="sticky" color="inherit">
-        <Toolbar>
-          <Typography variant="h6" color="primary" sx={{ fontWeight: 700, flexGrow: 1 }}>
-            🥗 {t.common.appName}
-          </Typography>
-
-          <ToggleButtonGroup
-            value={locale}
-            exclusive
-            onChange={handleLocaleChange}
-            size="small"
-            sx={{ mr: 2 }}
-          >
-            {SUPPORTED_LOCALES.map((loc) => (
-              <ToggleButton
-                key={loc}
-                value={loc}
-                sx={{ px: 1.5, py: 0.25, textTransform: 'uppercase', fontSize: '0.75rem' }}
-              >
-                {loc}
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
-
-          <Tooltip title={connected ? t.nav.realtimeConnected : t.nav.realtimeDisconnected}>
-            <Box sx={{ mr: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              {connected ? (
-                <WifiIcon fontSize="small" color="success" />
-              ) : (
-                <WifiOffIcon fontSize="small" color="error" />
-              )}
-              <Typography variant="caption" color={connected ? 'success.main' : 'error.main'}>
-                {connected ? t.nav.live : t.nav.offline}
-              </Typography>
-            </Box>
-          </Tooltip>
-
-          <Tooltip title={t.nav.logout}>
-            <IconButton onClick={handleLogout} color="inherit">
-              <LogoutIcon />
-            </IconButton>
-          </Tooltip>
-        </Toolbar>
-      </AppBar>
+      <AppTopBar />
 
       <Container maxWidth="lg" sx={{ py: 4, pb: { xs: 12, md: 4 } }}>
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
@@ -316,7 +279,39 @@ export default function CookbooksClient() {
           {t.cookbooks.subtitle}
         </Typography>
 
+        <Tabs value="cookbooks" sx={{ mb: 3 }} onChange={(_, value: 'recipes' | 'cookbooks') => {
+          if (value === 'recipes') {
+            router.push('/recipes')
+          }
+        }}>
+          <Tab value="recipes" label={t.recipes.tabRecipes} />
+          <Tab value="cookbooks" label={t.recipes.tabCookbooks} />
+        </Tabs>
+
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              {t.cookbooks.viewLabel}
+            </Typography>
+            <ToggleButtonGroup
+              value={viewMode}
+              exclusive
+              onChange={(_, value: ViewMode | null) => {
+                if (value) setViewMode(value)
+              }}
+              size="small"
+            >
+              <ToggleButton value="list" aria-label={t.cookbooks.viewList}>
+                <ViewListIcon fontSize="small" sx={{ mr: 0.5 }} />
+                {t.cookbooks.viewList}
+              </ToggleButton>
+              <ToggleButton value="grid" aria-label={t.cookbooks.viewGrid}>
+                <GridViewIcon fontSize="small" sx={{ mr: 0.5 }} />
+                {t.cookbooks.viewGrid}
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+
           <FormControl size="small" sx={{ minWidth: 200 }}>
             <InputLabel id="cookbooks-sort-by-label">{t.cookbooks.sortLabel}</InputLabel>
             <Select
@@ -363,7 +358,7 @@ export default function CookbooksClient() {
               </Typography>
             </CardContent>
           </Card>
-        ) : (
+        ) : viewMode === 'grid' ? (
           <Grid container spacing={3}>
             {cookbooks.map((cookbook) => (
               <Grid key={cookbook.id} size={{ xs: 12, sm: 6, md: 4 }}>
@@ -380,10 +375,25 @@ export default function CookbooksClient() {
               </Grid>
             ))}
           </Grid>
+        ) : (
+          <Box sx={{ display: 'grid', gap: 2 }}>
+            {cookbooks.map((cookbook) => (
+              <Card key={cookbook.id} elevation={0}>
+                <CardContent sx={{ p: 3 }}>
+                  <Typography variant="h6" sx={{ mb: 1 }}>
+                    {cookbook.name}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {formatRecipeCount(recipeCountLabel, cookbook.recipeCount)}
+                  </Typography>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
         )}
       </Container>
 
-      <MobileBottomNav value="cookbooks" />
+      <MobileBottomNav value={null} />
 
       <Fab
         color="primary"

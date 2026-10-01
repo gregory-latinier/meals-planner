@@ -2,15 +2,15 @@
 
 import React from 'react'
 import { BottomNavigation, BottomNavigationAction, Paper } from '@mui/material'
-import MenuBookIcon from '@mui/icons-material/MenuBook'
+import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu'
 import StorefrontIcon from '@mui/icons-material/Storefront'
 import { useRouter } from 'next/navigation'
 import { useT } from '@/i18n/I18nContext'
 
-export type MobileBottomNavValue = 'cookbooks' | 'stores'
+export type MobileBottomNavValue = 'recipes' | 'stores'
 
 interface MobileBottomNavProps {
-  value: MobileBottomNavValue
+  value: MobileBottomNavValue | null
 }
 
 export default function MobileBottomNav({ value }: MobileBottomNavProps) {
@@ -22,12 +22,12 @@ export default function MobileBottomNav({ value }: MobileBottomNavProps) {
       return
     }
 
-    if (nextValue === 'stores') {
-      router.push('/stores')
+    if (nextValue === 'recipes') {
+      router.push('/recipes')
       return
     }
 
-    router.push('/cookbooks')
+    router.push('/stores')
   }
 
   return (
@@ -44,9 +44,9 @@ export default function MobileBottomNav({ value }: MobileBottomNavProps) {
     >
       <BottomNavigation value={value} onChange={handleChange} showLabels>
         <BottomNavigationAction
-          value="cookbooks"
-          label={t.nav.cookbooksTab}
-          icon={<MenuBookIcon />}
+          value="recipes"
+          label={t.nav.recipesTab}
+          icon={<RestaurantMenuIcon />}
         />
         <BottomNavigationAction
           value="stores"

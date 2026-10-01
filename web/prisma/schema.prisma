@@ -16,10 +16,14 @@ model Household {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  sessions      Session[]
-  resetTokens   PasswordResetToken[]
-  cookbooks     Cookbook[]
-  stores        Store[]
+  sessions       Session[]
+  resetTokens    PasswordResetToken[]
+  cookbooks      Cookbook[]
+  stores         Store[]
+  recipes        Recipe[]
+  recipeTags     RecipeTag[]
+  ingredients    Ingredient[]
+  units          Unit[]
 }
 
 model Session {
@@ -55,6 +59,8 @@ model Cookbook {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
+  recipes        Recipe[]
+
   @@index([householdId])
   @@index([updatedAt])
   @@unique([householdId, nameNormalized])
@@ -72,4 +78,142 @@ model Store {
   @@index([householdId])
   @@index([updatedAt])
   @@unique([householdId, nameNormalized])
+}
+
+enum RecipeStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum RecipeIngredientRowKind {
+  HEADING
+  ITEM
+}
+
+model Recipe {
+  id                  String      @id @default(cuid())
+  householdId         String
+  household           Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  cookbookId          String?
+  cookbook            Cookbook?   @relation(fields: [cookbookId], references: [id], onDelete: SetNull)
+  title               String      @db.VarChar(500)
+  status              RecipeStatus @default(DRAFT)
+  servings            Int?
+  prepMinutes         Int?
+  cookMinutes         Int?
+  sourceUrl           String?     @db.Text
+  instructions        Json
+  imagePath           String?     @db.VarChar(1024)
+  imageMimeType       String?     @db.VarChar(100)
+  imageWidth          Int?
+  imageHeight         Int?
+  imageSizeBytes      Int?
+  draftSavedAt        DateTime?
+  lastAutosavedAt     DateTime?
+  autosaveVersion     Int         @default(0)
+  publishedAt         DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  ingredientRows      RecipeIngredientRow[]
+  tagsOnRecipes       RecipeTagOnRecipe[]
+
+  @@index([householdId, updatedAt])
+  @@index([householdId, status, updatedAt])
+  @@index([cookbookId])
+}
+
+model RecipeTag {
+  id             String      @id @default(cuid())
+  householdId    String
+  household      Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  name           String      @db.VarChar(100)
+  nameNormalized String      @db.VarChar(100)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  recipes        RecipeTagOnRecipe[]
+
+  @@index([householdId])
+  @@index([householdId, name])
+  @@unique([householdId, nameNormalized])
+}
+
+model RecipeTagOnRecipe {
+  recipeId       String
+  recipe         Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  tagId          String
+  tag            RecipeTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt      DateTime   @default(now())
+
+  @@id([recipeId, tagId])
+  @@index([tagId])
+}
+
+model Ingredient {
+  id             String      @id @default(cuid())
+  householdId    String
+  household      Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  name           String      @db.VarChar(300)
+  nameNormalized String      @db.VarChar(300)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  translations   IngredientTranslation[]
+  recipeRows     RecipeIngredientRow[]
+
+  @@index([householdId])
+  @@index([householdId, name])
+  @@unique([householdId, nameNormalized])
+}
+
+model IngredientTranslation {
+  id             String      @id @default(cuid())
+  ingredientId   String
+  ingredient     Ingredient  @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  locale         String      @db.VarChar(8)
+  name           String      @db.VarChar(300)
+  nameNormalized String      @db.VarChar(300)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@unique([ingredientId, locale])
+  @@index([locale, nameNormalized])
+}
+
+model Unit {
+  id             String      @id @default(cuid())
+  householdId    String
+  household      Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  name           String      @db.VarChar(100)
+  nameNormalized String      @db.VarChar(100)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  recipeRows     RecipeIngredientRow[]
+
+  @@index([householdId])
+  @@index([householdId, name])
+  @@unique([householdId, nameNormalized])
+}
+
+model RecipeIngredientRow {
+  id             String                  @id @default(cuid())
+  recipeId       String
+  recipe         Recipe                  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  position       Int
+  kind           RecipeIngredientRowKind
+  heading        String?                 @db.VarChar(500)
+  ingredientId   String?
+  ingredient     Ingredient?             @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
+  quantity       String?                 @db.VarChar(100)
+  unitId         String?
+  unit           Unit?                   @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  note           String?                 @db.VarChar(500)
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  @@index([recipeId, position])
+  @@index([ingredientId])
+  @@index([unitId])
 }

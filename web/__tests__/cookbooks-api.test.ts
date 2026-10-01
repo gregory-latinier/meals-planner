@@ -48,8 +48,11 @@ describe('cookbooks API route', () => {
           nameNormalized: 'desserts',
           createdAt: new Date('2026-01-01T00:00:00.000Z'),
           updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+          _count: {
+            recipes: 2,
+          },
         },
-      ])
+      ] as unknown as Awaited<ReturnType<typeof prisma.cookbook.findMany>>)
 
       const req = new NextRequest('http://localhost/api/cookbooks?sortBy=name&order=asc')
       const res = await GET(req)
@@ -64,6 +67,11 @@ describe('cookbooks API route', () => {
           name: true,
           createdAt: true,
           updatedAt: true,
+          _count: {
+            select: {
+              recipes: true,
+            },
+          },
         },
       })
       expect(body).toEqual({
@@ -73,7 +81,7 @@ describe('cookbooks API route', () => {
             name: 'Desserts',
             createdAt: '2026-01-01T00:00:00.000Z',
             updatedAt: '2026-01-02T00:00:00.000Z',
-            recipeCount: 0,
+            recipeCount: 2,
           }),
         ],
       })
@@ -149,7 +157,10 @@ describe('cookbooks API route', () => {
         nameNormalized: 'my cookbook',
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
         updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-      })
+        _count: {
+          recipes: 0,
+        },
+      } as unknown as Awaited<ReturnType<typeof prisma.cookbook.create>>)
 
       const req = new NextRequest('http://localhost/api/cookbooks', {
         method: 'POST',
@@ -169,6 +180,11 @@ describe('cookbooks API route', () => {
           name: true,
           createdAt: true,
           updatedAt: true,
+          _count: {
+            select: {
+              recipes: true,
+            },
+          },
         },
       })
       expect(await res.json()).toEqual({

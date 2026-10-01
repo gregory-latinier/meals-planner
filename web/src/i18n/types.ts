@@ -44,6 +44,9 @@ export interface Messages {
   cookbooks: {
     title: string
     subtitle: string
+    viewLabel: string
+    viewList: string
+    viewGrid: string
     sortLabel: string
     sortUpdated: string
     sortName: string
@@ -66,6 +69,87 @@ export interface Messages {
       maxLength: string
       duplicateGeneric: string
       createFailed: string
+    }
+  }
+  recipes: {
+    title: string
+    subtitle: string
+    tabRecipes: string
+    tabCookbooks: string
+    viewLabel: string
+    viewList: string
+    viewGrid: string
+    imageFallback: string
+    sortLabel: string
+    sortUpdated: string
+    sortTitle: string
+    orderAsc: string
+    orderDesc: string
+    noRecipesTitle: string
+    noRecipesSubtitle: string
+    addFabAriaLabel: string
+    addChooserTitle: string
+    writeFromScratchOption: string
+    importPhotoOption: string
+    importUrlOption: string
+    comingSoon: string
+    statusDraft: string
+    statusPublished: string
+    backToRecipes: string
+    editorTitleCreate: string
+    editorSubtitle: string
+    titleLabel: string
+    cookbookLabel: string
+    noCookbookOption: string
+    servingsLabel: string
+    prepMinutesLabel: string
+    cookMinutesLabel: string
+    sourceUrlLabel: string
+    tagsLabel: string
+    imageLabel: string
+    imageUploadButton: string
+    imageCaptureButton: string
+    ingredientsTitle: string
+    instructionsTitle: string
+    addIngredientItem: string
+    addIngredientHeading: string
+    addInstructionItem: string
+    addInstructionHeading: string
+    ingredientHeadingLabel: string
+    ingredientNameLabel: string
+    ingredientQuantityLabel: string
+    ingredientUnitLabel: string
+    ingredientNoteLabel: string
+    instructionTextLabel: string
+    rowKindItem: string
+    rowKindHeading: string
+    moveUp: string
+    moveDown: string
+    removeRow: string
+    autosaveSaved: string
+    autosaveSaving: string
+    autosaveUnsaved: string
+    autosaveError: string
+    publishButton: string
+    saveDraftButton: string
+    createCookbookButton: string
+    createCookbookDialogTitle: string
+    cancelButton: string
+    createButton: string
+    unsavedChangesPrompt: string
+    errors: {
+      titleRequired: string
+      titleMaxLength: string
+      instructionItemMaxLength: string
+      loadFailed: string
+      draftCreateFailed: string
+      saveFailed: string
+      publishFailed: string
+      imageUploadFailed: string
+      cookbookCreateFailed: string
+      cookbookDuplicate: string
+      cookbookRequired: string
+      cookbookMaxLength: string
     }
   }
   stores: {
@@ -105,7 +189,7 @@ export interface Messages {
     realtimeDisconnected: string
     live: string
     offline: string
-    cookbooksTab: string
+    recipesTab: string
     storesTab: string
   }
 }

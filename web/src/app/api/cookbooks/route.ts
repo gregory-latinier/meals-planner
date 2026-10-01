@@ -46,13 +46,21 @@ export async function GET(req: NextRequest) {
         name: true,
         createdAt: true,
         updatedAt: true,
+        _count: {
+          select: {
+            recipes: true,
+          },
+        },
       },
     })
 
     return NextResponse.json({
       cookbooks: cookbooks.map((cookbook) => ({
-        ...cookbook,
-        recipeCount: 0,
+        id: cookbook.id,
+        name: cookbook.name,
+        createdAt: cookbook.createdAt,
+        updatedAt: cookbook.updatedAt,
+        recipeCount: cookbook._count.recipes,
       })),
     })
   } catch (err) {
@@ -95,13 +103,21 @@ export async function POST(req: NextRequest) {
         name: true,
         createdAt: true,
         updatedAt: true,
+        _count: {
+          select: {
+            recipes: true,
+          },
+        },
       },
     })
 
     return NextResponse.json({
       cookbook: {
-        ...cookbook,
-        recipeCount: 0,
+        id: cookbook.id,
+        name: cookbook.name,
+        createdAt: cookbook.createdAt,
+        updatedAt: cookbook.updatedAt,
+        recipeCount: cookbook._count.recipes,
       },
     })
   } catch (err) {
