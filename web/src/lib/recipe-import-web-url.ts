@@ -7,11 +7,9 @@ import {
   MAX_INSTRUCTION_HEADING_LENGTH,
   MAX_INSTRUCTION_ITEM_LENGTH,
   MAX_QUANTITY_LENGTH,
-  MAX_TAG_LENGTH,
   MAX_TITLE_LENGTH,
   MAX_UNIT_NAME_LENGTH,
   normalizeLower,
-  resolveTagIds,
 } from '@/lib/recipe-domain'
 import { downloadImageBuffer, processAndStoreRecipeImage, type StoredRecipeImage } from '@/lib/recipe-image'
 import { assertSafeRemoteHttpUrl } from '@/lib/remote-url-safety'
@@ -62,7 +60,6 @@ interface AiRecipeExtraction {
   cookMinutes: number | null
   instructions: AiInstructionRow[]
   ingredientRows: AiIngredientRow[]
-  tags: string[]
   selectedImageUrl: string | null
 }
 
@@ -527,24 +524,6 @@ function sanitizeAiIngredientRows(value: unknown): AiIngredientRow[] {
   return rows
 }
 
-function sanitizeTags(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-
-  const tags: string[] = []
-  const seen = new Set<string>()
-  for (const entry of value) {
-    if (typeof entry !== 'string') continue
-    const normalized = normalizeLower(clampText(entry.trim(), MAX_TAG_LENGTH))
-    if (!normalized) continue
-    if (!seen.has(normalized)) {
-      seen.add(normalized)
-      tags.push(normalized)
-    }
-  }
-
-  return tags.slice(0, 12)
-}
-
 function fallbackTitle(context: ExtractedContext, sourceUrl: string): string {
   if (context.pageTitle) return clampText(context.pageTitle, MAX_TITLE_LENGTH)
 
@@ -568,7 +547,6 @@ function sanitizeAiRecipeExtraction(raw: unknown, context: ExtractedContext, sou
     cookMinutes: parseInteger(data.cookMinutes),
     instructions: sanitizeAiInstructionRows(data.instructions),
     ingredientRows: sanitizeAiIngredientRows(data.ingredientRows),
-    tags: sanitizeTags(data.tags),
     selectedImageUrl: typeof data.selectedImageUrl === 'string' ? data.selectedImageUrl.trim() : null,
   }
 }
@@ -579,7 +557,7 @@ function buildExtractionPrompt(sourceUrl: string, context: ExtractedContext): st
   return [
     'Extract one recipe from this webpage context.',
     'Return ONLY strict JSON matching this exact shape:',
-    '{"title":string,"servings":number|null,"prepMinutes":number|null,"cookMinutes":number|null,"instructions":[{"kind":"heading"|"item","text":string}],"ingredientRows":[{"kind":"heading"|"item","heading"?:string,"name"?:string,"quantity"?:string,"unit"?:string,"note"?:string}],"tags":string[],"selectedImageUrl":string|null}',
+    '{"title":string,"servings":number|null,"prepMinutes":number|null,"cookMinutes":number|null,"instructions":[{"kind":"heading"|"item","text":string}],"ingredientRows":[{"kind":"heading"|"item","heading"?:string,"name"?:string,"quantity"?:string,"unit"?:string,"note"?:string}],"selectedImageUrl":string|null}',
     'Rules:',
     '- Use only information from the page context.',
     '- title required, concise, no markdown.',
@@ -820,8 +798,6 @@ async function persistImportedRecipe(
       })
     }
 
-    const tagIds = await resolveTagIds(tx, input.householdId, extracted.tags)
-
     const recipe = await tx.recipe.create({
       data: {
         householdId: input.householdId,
@@ -841,9 +817,6 @@ async function persistImportedRecipe(
         imageSizeBytes: image?.sizeBytes ?? null,
         ingredientRows: {
           create: ingredientRowsPayload,
-        },
-        tagsOnRecipes: {
-          create: tagIds.map((tagId) => ({ tagId })),
         },
       },
       select: {

@@ -102,12 +102,21 @@ export interface Messages {
     statusDraft: string
     statusPublished: string
     backToRecipes: string
+    editRecipeButton: string
     editorTitleCreate: string
     editorSubtitle: string
+    untitledFallback: string
+    noIngredients: string
+    noInstructions: string
+    metaServings: string
+    metaPrepMinutes: string
+    metaCookMinutes: string
     titleLabel: string
     cookbookLabel: string
     noCookbookOption: string
     servingsLabel: string
+    increaseServingsAriaLabel: string
+    decreaseServingsAriaLabel: string
     prepMinutesLabel: string
     cookMinutesLabel: string
     sourceUrlLabel: string
@@ -127,7 +136,8 @@ export interface Messages {
     ingredientUnitLabel: string
     ingredientNoteLabel: string
     instructionTextLabel: string
-    rowKindItem: string
+    rowKindIngredientItem: string
+    rowKindTextItem: string
     rowKindHeading: string
     moveUp: string
     moveDown: string
@@ -155,6 +165,7 @@ export interface Messages {
       saveFailed: string
       publishFailed: string
       imageUploadFailed: string
+      viewLoadFailed: string
       cookbookCreateFailed: string
       cookbookDuplicate: string
       cookbookRequired: string

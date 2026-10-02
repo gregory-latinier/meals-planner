@@ -32,6 +32,7 @@ import { useRouter } from 'next/navigation'
 import AppTopBar from '@/components/AppTopBar'
 import { useT } from '@/i18n/I18nContext'
 import MobileBottomNav from '@/components/MobileBottomNav'
+import { MAX_COOKBOOK_NAME_LENGTH } from '@/lib/cookbook-domain'
 
 type SortField = 'updatedAt' | 'name'
 type SortOrder = 'asc' | 'desc'
@@ -47,7 +48,6 @@ interface Cookbook {
 
 const SORT_STORAGE_KEY = 'mp_cookbooks_sort'
 const VIEW_STORAGE_KEY = 'mp_cookbooks_view'
-const MAX_NAME_LENGTH = 500
 const DEFAULT_SORT_BY: SortField = 'updatedAt'
 const DEFAULT_ORDER: SortOrder = 'desc'
 const DEFAULT_VIEW: ViewMode = 'grid'
@@ -195,8 +195,21 @@ export default function CookbooksClient() {
 
   function getClientValidationError(trimmed: string): string {
     if (!trimmed) return t.cookbooks.errors.required
-    if (trimmed.length > MAX_NAME_LENGTH) return t.cookbooks.errors.maxLength
+    if (trimmed.length > MAX_COOKBOOK_NAME_LENGTH) return t.cookbooks.errors.maxLength
     return ''
+  }
+
+  function mapCreateBadRequestError(serverError: unknown, submittedName: string): string {
+    // Prefer structured, constant-driven validation based on the submitted value.
+    const validationError = getClientValidationError(submittedName)
+    if (validationError) return validationError
+
+    // Fallback to broad server-message mapping without hardcoded numeric matching.
+    if (typeof serverError === 'string' && serverError.toLowerCase().includes('required')) {
+      return t.cookbooks.errors.required
+    }
+
+    return t.cookbooks.errors.createFailed
   }
 
   async function handleCreateCookbook(e: React.FormEvent) {
@@ -227,15 +240,9 @@ export default function CookbooksClient() {
           return
         }
 
-        if (res.status === 400 && typeof data?.error === 'string') {
-          if (data.error.includes('required')) {
-            setCreateError(t.cookbooks.errors.required)
-            return
-          }
-          if (data.error.includes('500 characters')) {
-            setCreateError(t.cookbooks.errors.maxLength)
-            return
-          }
+        if (res.status === 400) {
+          setCreateError(mapCreateBadRequestError(data?.error, trimmed))
+          return
         }
 
         setCreateError(t.cookbooks.errors.createFailed)
@@ -272,13 +279,6 @@ export default function CookbooksClient() {
       <AppTopBar />
 
       <Container maxWidth="lg" sx={{ py: 4, pb: { xs: 12, md: 4 } }}>
-        <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-          {t.cookbooks.title}
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          {t.cookbooks.subtitle}
-        </Typography>
-
         <Tabs value="cookbooks" sx={{ mb: 3 }} onChange={(_, value: 'recipes' | 'cookbooks') => {
           if (value === 'recipes') {
             router.push('/recipes')
@@ -459,7 +459,7 @@ export default function CookbooksClient() {
             onChange={(event) => setName(event.target.value)}
             autoFocus
             required
-            slotProps={{ htmlInput: { maxLength: MAX_NAME_LENGTH } }}
+            slotProps={{ htmlInput: { maxLength: MAX_COOKBOOK_NAME_LENGTH } }}
             disabled={submitting}
             sx={{ mb: 2 }}
           />

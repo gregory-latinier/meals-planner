@@ -11,10 +11,16 @@ import {
   Chip,
   Container,
   Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
   IconButton,
   MenuItem,
   Select,
   Stack,
+  Switch,
   TextField,
   Typography,
 } from '@mui/material'
@@ -25,6 +31,7 @@ import AddIcon from '@mui/icons-material/Add'
 import { useRouter } from 'next/navigation'
 import AppTopBar from '@/components/AppTopBar'
 import { useT } from '@/i18n/I18nContext'
+import { MAX_COOKBOOK_NAME_LENGTH } from '@/lib/cookbook-domain'
 
 type RowKind = 'heading' | 'item'
 
@@ -123,6 +130,10 @@ export default function RecipeEditorClient({ recipeId }: RecipeEditorClientProps
 
   const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>('saved')
   const [baseline, setBaseline] = useState('')
+  const [cookbookDialogOpen, setCookbookDialogOpen] = useState(false)
+  const [cookbookDialogName, setCookbookDialogName] = useState('')
+  const [cookbookDialogError, setCookbookDialogError] = useState('')
+  const [creatingCookbook, setCreatingCookbook] = useState(false)
 
   const snapshot = useMemo(
     () => JSON.stringify({
@@ -541,17 +552,31 @@ export default function RecipeEditorClient({ recipeId }: RecipeEditorClientProps
     router.push('/recipes')
   }
 
-  async function createCookbookInline() {
-    const name = window.prompt(t.cookbooks.nameLabel) ?? ''
-    const trimmed = name.trim()
+  function openCookbookDialog() {
+    setCookbookDialogName('')
+    setCookbookDialogError('')
+    setCookbookDialogOpen(true)
+  }
+
+  function closeCookbookDialog() {
+    if (creatingCookbook) return
+    setCookbookDialogOpen(false)
+    setCookbookDialogError('')
+  }
+
+  async function submitCookbookDialog() {
+    const trimmed = cookbookDialogName.trim()
     if (!trimmed) {
-      setSaveError(t.recipes.errors.cookbookRequired)
+      setCookbookDialogError(t.recipes.errors.cookbookRequired)
       return
     }
-    if (trimmed.length > 500) {
-      setSaveError(t.recipes.errors.cookbookMaxLength)
+    if (trimmed.length > MAX_COOKBOOK_NAME_LENGTH) {
+      setCookbookDialogError(t.recipes.errors.cookbookMaxLength)
       return
     }
+
+    setCookbookDialogError('')
+    setCreatingCookbook(true)
 
     const res = await fetch('/api/cookbooks', {
       method: 'POST',
@@ -560,19 +585,25 @@ export default function RecipeEditorClient({ recipeId }: RecipeEditorClientProps
     })
 
     if (res.status === 409) {
-      setSaveError(t.recipes.errors.cookbookDuplicate)
+      setCookbookDialogError(t.recipes.errors.cookbookDuplicate)
+      setCreatingCookbook(false)
       return
     }
 
     const data = await res.json()
     if (!res.ok) {
-      setSaveError(t.recipes.errors.cookbookCreateFailed)
+      setCookbookDialogError(t.recipes.errors.cookbookCreateFailed)
+      setCreatingCookbook(false)
       return
     }
 
     const created = data.cookbook as CookbookOption
     setCookbooks((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)))
     setCookbookId(created.id)
+    setCreatingCookbook(false)
+    setCookbookDialogOpen(false)
+    setCookbookDialogName('')
+    setCookbookDialogError('')
   }
 
   const autosaveLabel =
@@ -588,7 +619,16 @@ export default function RecipeEditorClient({ recipeId }: RecipeEditorClientProps
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppTopBar />
 
-      <Container maxWidth="md" sx={{ py: 4 }}>
+      <Container
+        maxWidth="md"
+        sx={{
+          py: 4,
+          pb: {
+            xs: 'calc(140px + env(safe-area-inset-bottom))',
+            md: 'calc(112px + env(safe-area-inset-bottom))',
+          },
+        }}
+      >
         <Button onClick={tryBackToRecipes} sx={{ mb: 2 }}>
           {t.recipes.backToRecipes}
         </Button>
@@ -623,7 +663,7 @@ export default function RecipeEditorClient({ recipeId }: RecipeEditorClientProps
               />
 
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                <Box>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                   <Select
                     fullWidth
                     value={cookbookId}
@@ -637,10 +677,14 @@ export default function RecipeEditorClient({ recipeId }: RecipeEditorClientProps
                       </MenuItem>
                     ))}
                   </Select>
+                  <IconButton
+                    size="small"
+                    aria-label={t.recipes.createCookbookButton}
+                    onClick={openCookbookDialog}
+                  >
+                    <AddIcon fontSize="small" />
+                  </IconButton>
                 </Box>
-                <Button variant="outlined" onClick={createCookbookInline}>
-                  {t.recipes.createCookbookButton}
-                </Button>
               </Box>
 
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 2 }}>
@@ -764,17 +808,20 @@ export default function RecipeEditorClient({ recipeId }: RecipeEditorClientProps
               {ingredientRows.map((row, index) => (
                 <Box key={row.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 2 }}>
                   <Stack direction="row" spacing={1} sx={{ mb: 1, justifyContent: 'space-between' }}>
-                    <Select
-                      size="small"
-                      value={row.kind}
-                      onChange={(event) => {
-                        const kind = event.target.value as RowKind
-                        setIngredientRows((prev) => prev.map((item) => (item.id === row.id ? { ...item, kind } : item)))
-                      }}
-                    >
-                      <MenuItem value="item">{t.recipes.rowKindItem}</MenuItem>
-                      <MenuItem value="heading">{t.recipes.rowKindHeading}</MenuItem>
-                    </Select>
+                    <FormControlLabel
+                      data-testid={`ingredient-row-kind-toggle-${row.id}`}
+                      control={
+                        <Switch
+                          size="small"
+                          checked={row.kind === 'item'}
+                          onChange={(_, checked) => {
+                            const kind: RowKind = checked ? 'item' : 'heading'
+                            setIngredientRows((prev) => prev.map((item) => (item.id === row.id ? { ...item, kind } : item)))
+                          }}
+                        />
+                      }
+                      label={row.kind === 'item' ? t.recipes.rowKindIngredientItem : t.recipes.rowKindHeading}
+                    />
 
                     <Box>
                       <IconButton size="small" onClick={() => setIngredientRows((prev) => moveRow(prev, index, -1))}>
@@ -963,17 +1010,20 @@ export default function RecipeEditorClient({ recipeId }: RecipeEditorClientProps
               {instructionRows.map((row, index) => (
                 <Box key={row.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 2 }}>
                   <Stack direction="row" spacing={1} sx={{ mb: 1, justifyContent: 'space-between' }}>
-                    <Select
-                      size="small"
-                      value={row.kind}
-                      onChange={(event) => {
-                        const kind = event.target.value as RowKind
-                        setInstructionRows((prev) => prev.map((item) => (item.id === row.id ? { ...item, kind } : item)))
-                      }}
-                    >
-                      <MenuItem value="item">{t.recipes.rowKindItem}</MenuItem>
-                      <MenuItem value="heading">{t.recipes.rowKindHeading}</MenuItem>
-                    </Select>
+                    <FormControlLabel
+                      data-testid={`instruction-row-kind-toggle-${row.id}`}
+                      control={
+                        <Switch
+                          size="small"
+                          checked={row.kind === 'item'}
+                          onChange={(_, checked) => {
+                            const kind: RowKind = checked ? 'item' : 'heading'
+                            setInstructionRows((prev) => prev.map((item) => (item.id === row.id ? { ...item, kind } : item)))
+                          }}
+                        />
+                      }
+                      label={row.kind === 'item' ? t.recipes.rowKindTextItem : t.recipes.rowKindHeading}
+                    />
 
                     <Box>
                       <IconButton size="small" onClick={() => setInstructionRows((prev) => moveRow(prev, index, -1))}>
@@ -1025,23 +1075,72 @@ export default function RecipeEditorClient({ recipeId }: RecipeEditorClientProps
           </CardContent>
         </Card>
 
-        <Divider sx={{ mb: 2 }} />
-
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-          <Typography variant="body2" color={autosaveStatus === 'error' ? 'error.main' : 'text.secondary'}>
-            {autosaveLabel}
-          </Typography>
-
-          <Stack direction="row" spacing={1}>
-            <Button variant="outlined" disabled={submitting} onClick={() => void submitRecipe(false)}>
-              {t.recipes.saveDraftButton}
-            </Button>
-            <Button variant="contained" disabled={submitting} onClick={() => void submitRecipe(true)}>
-              {t.recipes.publishButton}
-            </Button>
-          </Stack>
-        </Box>
       </Container>
+
+      <Box
+        data-testid="recipe-editor-save-actions"
+        sx={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: (theme) => theme.zIndex.appBar - 1,
+          bgcolor: 'background.paper',
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          pb: 'env(safe-area-inset-bottom)',
+        }}
+      >
+        <Container maxWidth="md" sx={{ py: 1.5 }}>
+          <Divider sx={{ mb: 1.5 }} />
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+            <Typography variant="body2" color={autosaveStatus === 'error' ? 'error.main' : 'text.secondary'}>
+              {autosaveLabel}
+            </Typography>
+
+            <Stack direction="row" spacing={1}>
+              <Button variant="outlined" disabled={submitting} onClick={() => void submitRecipe(false)}>
+                {t.recipes.saveDraftButton}
+              </Button>
+              <Button variant="contained" disabled={submitting} onClick={() => void submitRecipe(true)}>
+                {t.recipes.publishButton}
+              </Button>
+            </Stack>
+          </Box>
+        </Container>
+      </Box>
+
+      <Dialog open={cookbookDialogOpen} onClose={closeCookbookDialog} fullWidth maxWidth="xs">
+        <DialogTitle>{t.recipes.createCookbookDialogTitle}</DialogTitle>
+        <Box
+          component="form"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void submitCookbookDialog()
+          }}
+        >
+          <DialogContent>
+            <TextField
+              autoFocus
+              fullWidth
+              label={t.cookbooks.nameLabel}
+              value={cookbookDialogName}
+              onChange={(event) => setCookbookDialogName(event.target.value)}
+              error={Boolean(cookbookDialogError)}
+              helperText={cookbookDialogError || ' '}
+              slotProps={{ htmlInput: { maxLength: MAX_COOKBOOK_NAME_LENGTH } }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={closeCookbookDialog} disabled={creatingCookbook}>
+              {t.recipes.cancelButton}
+            </Button>
+            <Button type="submit" variant="contained" disabled={creatingCookbook}>
+              {t.recipes.createButton}
+            </Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
     </Box>
   )
 }

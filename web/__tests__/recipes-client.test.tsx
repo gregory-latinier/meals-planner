@@ -76,6 +76,13 @@ describe('RecipesClient', () => {
     expect(screen.getByRole('button', { name: 'Grid' }).getAttribute('aria-pressed')).toBe('false')
   })
 
+  it('does not render page subtitle', async () => {
+    renderRecipes()
+
+    await screen.findByRole('tab', { name: 'Recipes' })
+    expect(screen.queryByText('Create and organize your household recipes.')).toBeNull()
+  })
+
   it('persists recipe page view preference in localStorage', async () => {
     renderRecipes()
 

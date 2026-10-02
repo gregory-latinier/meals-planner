@@ -157,6 +157,16 @@ describe('recipes APIs', () => {
     expect(await res.json()).toEqual({ error: 'Invalid recipeId.' })
   })
 
+  it('GET /api/recipes/[id] returns 401 when unauthenticated', async () => {
+    mockedGetSession.mockResolvedValueOnce(null)
+    const req = new NextRequest(`http://localhost/api/recipes/${VALID_RECIPE_ID}`)
+
+    const res = await recipeByIdGet(req, { params: Promise.resolve({ recipeId: VALID_RECIPE_ID }) })
+
+    expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({ error: 'Unauthorized.' })
+  })
+
   it('PATCH /api/recipes/[id]/autosave saves draft snapshot', async () => {
     mockedGetSession.mockResolvedValueOnce({ householdId: 'house-1' } as Awaited<ReturnType<typeof getSession>>)
     mockedRecipeFindFirst.mockResolvedValueOnce({

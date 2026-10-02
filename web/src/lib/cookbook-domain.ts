@@ -1,0 +1,1 @@
+export const MAX_COOKBOOK_NAME_LENGTH = 500

@@ -255,13 +255,6 @@ export default function RecipesClient() {
       <AppTopBar />
 
       <Container maxWidth="lg" sx={{ py: 4, pb: { xs: 12, md: 4 } }}>
-        <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-          {t.recipes.title}
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-          {t.recipes.subtitle}
-        </Typography>
-
         <Tabs value="recipes" sx={{ mb: 3 }} onChange={(_, value: 'recipes' | 'cookbooks') => {
           if (value === 'cookbooks') {
             router.push('/cookbooks')
@@ -349,7 +342,7 @@ export default function RecipesClient() {
                   borderBottom: '1px solid',
                   borderColor: 'divider',
                 }}
-                onClick={() => router.push(`/recipes/${recipe.id}/edit`)}
+                onClick={() => router.push(`/recipes/${recipe.id}`)}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.25 }}>
                   <RecipeImage
@@ -416,7 +409,7 @@ export default function RecipesClient() {
                   display: 'flex',
                   flexDirection: 'column',
                 }}
-                onClick={() => router.push(`/recipes/${recipe.id}/edit`)}
+                onClick={() => router.push(`/recipes/${recipe.id}`)}
               >
                 <Box sx={{ height: '70%', mb: 1.25 }}>
                   <RecipeImage

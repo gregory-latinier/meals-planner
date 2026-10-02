@@ -62,6 +62,13 @@ describe('CookbooksClient', () => {
     expect(screen.getByRole('button', { name: 'List' }).getAttribute('aria-pressed')).toBe('false')
   })
 
+  it('does not render page subtitle', async () => {
+    renderCookbooks()
+
+    await screen.findByRole('button', { name: 'Grid' })
+    expect(screen.queryByText('Group your recipes by theme, season, or favorites.')).toBeNull()
+  })
+
   it('persists cookbook page view preference in localStorage', async () => {
     renderCookbooks()
 

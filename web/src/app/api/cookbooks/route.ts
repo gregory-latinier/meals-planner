@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { MAX_COOKBOOK_NAME_LENGTH } from '@/lib/cookbook-domain'
 import { getSession } from '@/lib/session'
 
 type SortField = 'updatedAt' | 'name'
 type SortOrder = 'asc' | 'desc'
-
-const MAX_NAME_LENGTH = 500
 
 function parseSortField(value: string | null): SortField {
   return value === 'name' ? 'name' : 'updatedAt'
@@ -85,9 +84,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Cookbook name is required.' }, { status: 400 })
     }
 
-    if (name.length > MAX_NAME_LENGTH) {
+    if (name.length > MAX_COOKBOOK_NAME_LENGTH) {
       return NextResponse.json(
-        { error: `Cookbook name must be ${MAX_NAME_LENGTH} characters or fewer.` },
+        { error: `Cookbook name must be ${MAX_COOKBOOK_NAME_LENGTH} characters or fewer.` },
         { status: 400 }
       )
     }
