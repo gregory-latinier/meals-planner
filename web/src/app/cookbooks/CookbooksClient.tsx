@@ -25,6 +25,7 @@ import {
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import GridViewIcon from '@mui/icons-material/GridView'
+import ImageNotSupportedOutlinedIcon from '@mui/icons-material/ImageNotSupportedOutlined'
 import MenuBookIcon from '@mui/icons-material/MenuBook'
 import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu'
 import ViewListIcon from '@mui/icons-material/ViewList'
@@ -44,6 +45,60 @@ interface Cookbook {
   createdAt: string
   updatedAt: string
   recipeCount: number
+  coverImagePath: string | null
+}
+
+interface CookbookImageProps {
+  src: string | null
+  title: string
+  fallbackLabel: string
+  width: number | string
+  height: number | string
+}
+
+function CookbookImage({ src, title, fallbackLabel, width, height }: CookbookImageProps) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
+  const broken = Boolean(src && failedSrc === src)
+
+  if (!src || broken) {
+    return (
+      <Box
+        sx={{
+          width,
+          height,
+          bgcolor: 'action.hover',
+          borderRadius: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'text.secondary',
+          flexShrink: 0,
+          gap: 0.5,
+        }}
+      >
+        <ImageNotSupportedOutlinedIcon fontSize="small" />
+        <Typography variant="caption">{fallbackLabel}</Typography>
+      </Box>
+    )
+  }
+
+  return (
+    <Box
+      component="img"
+      src={src}
+      alt={title || fallbackLabel}
+      onError={() => setFailedSrc(src)}
+      sx={{
+        width,
+        height,
+        objectFit: 'cover',
+        borderRadius: 1,
+        display: 'block',
+        flexShrink: 0,
+      }}
+    />
+  )
 }
 
 const SORT_STORAGE_KEY = 'mp_cookbooks_sort'
@@ -94,14 +149,6 @@ export default function CookbooksClient() {
   const router = useRouter()
   const { t } = useT()
 
-  // sortRef holds the persisted sort loaded from localStorage on the client.
-  // We read it once at component mount via a ref so we never call setState
-  // inside an effect body (which triggers the react-hooks/set-state-in-effect
-  // lint error). The ref value is stable and does not cause re-renders.
-  const sortRef = React.useRef<{ sortBy: SortField; order: SortOrder } | null>(null)
-
-  // isMounted tracks whether we have hydrated on the client. Before mount both
-  // server and client render default values so React never sees a mismatch.
   const [isMounted, setIsMounted] = useState(false)
 
   const [sortBy, setSortBy] = useState<SortField>(DEFAULT_SORT_BY)
@@ -117,12 +164,8 @@ export default function CookbooksClient() {
   const [createError, setCreateError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  // Hydration-safe mount effect: synchronise sort state with localStorage after
-  // the first client render. Both server and first client render use defaults,
-  // so React sees no mismatch. After mount we apply the stored preference.
   useEffect(() => {
     const stored = readStoredSort()
-    sortRef.current = stored
     setSortBy(stored.sortBy) // eslint-disable-line react-hooks/set-state-in-effect
     setOrder(stored.order)
     setViewMode(readStoredView())
@@ -177,6 +220,7 @@ export default function CookbooksClient() {
   }, [sortBy, order, t.common.error, isMounted])
 
   const recipeCountLabel = useMemo(() => t.cookbooks.recipeCount, [t.cookbooks.recipeCount])
+  const imageFallbackLabel = useMemo(() => t.cookbooks.imageFallback, [t.cookbooks.imageFallback])
 
   function openCreateDrawer() {
     setChooserOpen(false)
@@ -364,6 +408,15 @@ export default function CookbooksClient() {
               <Grid key={cookbook.id} size={{ xs: 12, sm: 6, md: 4 }}>
                 <Card elevation={0}>
                   <CardContent sx={{ p: 3 }}>
+                    <Box sx={{ mb: 2 }}>
+                      <CookbookImage
+                        src={cookbook.coverImagePath}
+                        title={cookbook.name}
+                        fallbackLabel={imageFallbackLabel}
+                        width="100%"
+                        height={160}
+                      />
+                    </Box>
                     <Typography variant="h6" sx={{ mb: 1 }}>
                       {cookbook.name}
                     </Typography>
@@ -380,6 +433,15 @@ export default function CookbooksClient() {
             {cookbooks.map((cookbook) => (
               <Card key={cookbook.id} elevation={0}>
                 <CardContent sx={{ p: 3 }}>
+                  <Box sx={{ mb: 2 }}>
+                    <CookbookImage
+                      src={cookbook.coverImagePath}
+                      title={cookbook.name}
+                      fallbackLabel={imageFallbackLabel}
+                      width="100%"
+                      height={140}
+                    />
+                  </Box>
                   <Typography variant="h6" sx={{ mb: 1 }}>
                     {cookbook.name}
                   </Typography>

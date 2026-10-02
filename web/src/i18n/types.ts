@@ -53,6 +53,7 @@ export interface Messages {
     orderAsc: string
     orderDesc: string
     recipeCount: string
+    imageFallback: string
     noCookbooksTitle: string
     noCookbooksSubtitle: string
     addFabAriaLabel: string

@@ -45,6 +45,7 @@ describe('CookbooksClient', () => {
             createdAt: '2026-01-01T00:00:00.000Z',
             updatedAt: '2026-01-02T00:00:00.000Z',
             recipeCount: 2,
+            coverImagePath: '/uploads/recipes/desserts.jpg',
           },
         ],
       }),
@@ -86,6 +87,86 @@ describe('CookbooksClient', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'List' }).getAttribute('aria-pressed')).toBe('true')
+    })
+  })
+
+  it('renders cookbook cover image in grid and list views', async () => {
+    renderCookbooks()
+
+    await screen.findByRole('img', { name: 'Desserts' })
+    expect(screen.getByRole('img', { name: 'Desserts' })).not.toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'List' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('img', { name: 'Desserts' })).not.toBeNull()
+    })
+  })
+
+  it('shows cookbook image fallback when no cover image exists in both views', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        cookbooks: [
+          {
+            id: 'cb-1',
+            name: 'Desserts',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-02T00:00:00.000Z',
+            recipeCount: 2,
+            coverImagePath: null,
+          },
+        ],
+      }),
+    } as Response) as unknown as typeof fetch
+
+    renderCookbooks()
+
+    await screen.findByText('No image')
+    expect(screen.getAllByText('No image')).toHaveLength(1)
+    expect(screen.queryByRole('img', { name: 'Desserts' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'List' }))
+
+    await waitFor(() => {
+      expect(screen.getAllByText('No image')).toHaveLength(1)
+      expect(screen.queryByRole('img', { name: 'Desserts' })).toBeNull()
+    })
+  })
+
+  it('falls back when cookbook cover image fails to load in both views', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        cookbooks: [
+          {
+            id: 'cb-1',
+            name: 'Desserts',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-02T00:00:00.000Z',
+            recipeCount: 2,
+            coverImagePath: '/uploads/recipes/broken-cover.jpg',
+          },
+        ],
+      }),
+    } as Response) as unknown as typeof fetch
+
+    renderCookbooks()
+
+    const gridImage = await screen.findByRole('img', { name: 'Desserts' })
+    fireEvent.error(gridImage)
+
+    await screen.findByText('No image')
+    expect(screen.queryByRole('img', { name: 'Desserts' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'List' }))
+
+    const listImage = await screen.findByRole('img', { name: 'Desserts' })
+    fireEvent.error(listImage)
+
+    await waitFor(() => {
+      expect(screen.getAllByText('No image')).toHaveLength(1)
+      expect(screen.queryByRole('img', { name: 'Desserts' })).toBeNull()
     })
   })
 })

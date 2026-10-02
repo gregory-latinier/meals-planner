@@ -55,6 +55,7 @@ const fr: Messages = {
     orderAsc: 'Croissant',
     orderDesc: 'Décroissant',
     recipeCount: '{{count}} recettes',
+    imageFallback: 'Aucune image',
     noCookbooksTitle: 'Aucun livre de recettes',
     noCookbooksSubtitle: 'Créez votre premier livre pour commencer à organiser vos recettes.',
     addFabAriaLabel: 'Ajouter un élément',

@@ -55,6 +55,7 @@ const en: Messages = {
     orderAsc: 'Ascending',
     orderDesc: 'Descending',
     recipeCount: '{{count}} recipes',
+    imageFallback: 'No image',
     noCookbooksTitle: 'No cookbooks yet',
     noCookbooksSubtitle: 'Create your first cookbook to start organizing recipes.',
     addFabAriaLabel: 'Add item',

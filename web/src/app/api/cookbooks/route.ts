@@ -23,6 +23,11 @@ function normalizeCookbookName(name: string): string {
   return name.trim().toLocaleLowerCase()
 }
 
+function normalizeImagePath(path: string | null): string | null {
+  if (!path) return null
+  return path.trim() ? path : null
+}
+
 export async function GET(req: NextRequest) {
   const session = await getSession()
 
@@ -53,6 +58,40 @@ export async function GET(req: NextRequest) {
       },
     })
 
+    const cookbookIds = cookbooks.map((cookbook) => cookbook.id)
+    const newestRecipeImageByCookbook = new Map<string, string | null>()
+    const newestRecipeWithImageByCookbook = new Map<string, string>()
+
+    if (cookbookIds.length > 0) {
+      const recipes = await prisma.recipe.findMany({
+        where: {
+          householdId: session.householdId,
+          cookbookId: {
+            in: cookbookIds,
+          },
+        },
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+        select: {
+          cookbookId: true,
+          imagePath: true,
+        },
+      })
+
+      for (const recipe of recipes) {
+        if (!recipe.cookbookId) continue
+
+        const imagePath = normalizeImagePath(recipe.imagePath)
+
+        if (!newestRecipeImageByCookbook.has(recipe.cookbookId)) {
+          newestRecipeImageByCookbook.set(recipe.cookbookId, imagePath)
+        }
+
+        if (imagePath && !newestRecipeWithImageByCookbook.has(recipe.cookbookId)) {
+          newestRecipeWithImageByCookbook.set(recipe.cookbookId, imagePath)
+        }
+      }
+    }
+
     return NextResponse.json({
       cookbooks: cookbooks.map((cookbook) => ({
         id: cookbook.id,
@@ -60,6 +99,10 @@ export async function GET(req: NextRequest) {
         createdAt: cookbook.createdAt,
         updatedAt: cookbook.updatedAt,
         recipeCount: cookbook._count.recipes,
+        coverImagePath:
+          newestRecipeImageByCookbook.get(cookbook.id) ??
+          newestRecipeWithImageByCookbook.get(cookbook.id) ??
+          null,
       })),
     })
   } catch (err) {

@@ -10,6 +10,9 @@ jest.mock('@/lib/prisma', () => ({
       findMany: jest.fn(),
       create: jest.fn(),
     },
+    recipe: {
+      findMany: jest.fn(),
+    },
   },
 }))
 
@@ -20,6 +23,7 @@ jest.mock('@/lib/session', () => ({
 const mockedGetSession = getSession as jest.MockedFunction<typeof getSession>
 const mockedFindMany = prisma.cookbook.findMany as jest.MockedFunction<typeof prisma.cookbook.findMany>
 const mockedCreate = prisma.cookbook.create as jest.MockedFunction<typeof prisma.cookbook.create>
+const mockedRecipeFindMany = prisma.recipe.findMany as jest.MockedFunction<typeof prisma.recipe.findMany>
 
 describe('cookbooks API route', () => {
   beforeEach(() => {
@@ -53,6 +57,12 @@ describe('cookbooks API route', () => {
           },
         },
       ] as unknown as Awaited<ReturnType<typeof prisma.cookbook.findMany>>)
+      mockedRecipeFindMany.mockResolvedValueOnce([
+        {
+          cookbookId: 'cb-1',
+          imagePath: '/uploads/recipes/latest.jpg',
+        },
+      ] as unknown as Awaited<ReturnType<typeof prisma.recipe.findMany>>)
 
       const req = new NextRequest('http://localhost/api/cookbooks?sortBy=name&order=asc')
       const res = await GET(req)
@@ -74,6 +84,19 @@ describe('cookbooks API route', () => {
           },
         },
       })
+      expect(mockedRecipeFindMany).toHaveBeenCalledWith({
+        where: {
+          householdId: 'house-1',
+          cookbookId: {
+            in: ['cb-1'],
+          },
+        },
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+        select: {
+          cookbookId: true,
+          imagePath: true,
+        },
+      })
       expect(body).toEqual({
         cookbooks: [
           expect.objectContaining({
@@ -82,6 +105,85 @@ describe('cookbooks API route', () => {
             createdAt: '2026-01-01T00:00:00.000Z',
             updatedAt: '2026-01-02T00:00:00.000Z',
             recipeCount: 2,
+            coverImagePath: '/uploads/recipes/latest.jpg',
+          }),
+        ],
+      })
+    })
+
+    it('uses newest recipe with image when newest recipe has no image', async () => {
+      mockedGetSession.mockResolvedValueOnce({ householdId: 'house-1' } as Awaited<ReturnType<typeof getSession>>)
+      mockedFindMany.mockResolvedValueOnce([
+        {
+          id: 'cb-1',
+          householdId: 'house-1',
+          name: 'Desserts',
+          nameNormalized: 'desserts',
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+          _count: {
+            recipes: 2,
+          },
+        },
+      ] as unknown as Awaited<ReturnType<typeof prisma.cookbook.findMany>>)
+      mockedRecipeFindMany.mockResolvedValueOnce([
+        {
+          cookbookId: 'cb-1',
+          imagePath: null,
+        },
+        {
+          cookbookId: 'cb-1',
+          imagePath: '/uploads/recipes/older-with-image.jpg',
+        },
+      ] as unknown as Awaited<ReturnType<typeof prisma.recipe.findMany>>)
+
+      const req = new NextRequest('http://localhost/api/cookbooks')
+      const res = await GET(req)
+      const body = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(body).toEqual({
+        cookbooks: [
+          expect.objectContaining({
+            id: 'cb-1',
+            coverImagePath: '/uploads/recipes/older-with-image.jpg',
+          }),
+        ],
+      })
+    })
+
+    it('returns null cover image when no recipes with images exist', async () => {
+      mockedGetSession.mockResolvedValueOnce({ householdId: 'house-1' } as Awaited<ReturnType<typeof getSession>>)
+      mockedFindMany.mockResolvedValueOnce([
+        {
+          id: 'cb-1',
+          householdId: 'house-1',
+          name: 'Desserts',
+          nameNormalized: 'desserts',
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+          _count: {
+            recipes: 2,
+          },
+        },
+      ] as unknown as Awaited<ReturnType<typeof prisma.cookbook.findMany>>)
+      mockedRecipeFindMany.mockResolvedValueOnce([
+        {
+          cookbookId: 'cb-1',
+          imagePath: null,
+        },
+      ] as unknown as Awaited<ReturnType<typeof prisma.recipe.findMany>>)
+
+      const req = new NextRequest('http://localhost/api/cookbooks')
+      const res = await GET(req)
+      const body = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(body).toEqual({
+        cookbooks: [
+          expect.objectContaining({
+            id: 'cb-1',
+            coverImagePath: null,
           }),
         ],
       })
@@ -100,6 +202,7 @@ describe('cookbooks API route', () => {
           orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
         })
       )
+      expect(mockedRecipeFindMany).not.toHaveBeenCalled()
     })
   })
 
