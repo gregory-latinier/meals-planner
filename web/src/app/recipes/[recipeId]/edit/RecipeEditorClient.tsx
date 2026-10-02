@@ -24,7 +24,6 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import { useRouter } from 'next/navigation'
 import AppTopBar from '@/components/AppTopBar'
-import MobileBottomNav from '@/components/MobileBottomNav'
 import { useT } from '@/i18n/I18nContext'
 
 type RowKind = 'heading' | 'item'
@@ -589,7 +588,7 @@ export default function RecipeEditorClient({ recipeId }: RecipeEditorClientProps
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppTopBar />
 
-      <Container maxWidth="md" sx={{ py: 4, pb: { xs: 12, md: 4 } }}>
+      <Container maxWidth="md" sx={{ py: 4 }}>
         <Button onClick={tryBackToRecipes} sx={{ mb: 2 }}>
           {t.recipes.backToRecipes}
         </Button>
@@ -1043,8 +1042,6 @@ export default function RecipeEditorClient({ recipeId }: RecipeEditorClientProps
           </Stack>
         </Box>
       </Container>
-
-      <MobileBottomNav value="recipes" />
     </Box>
   )
 }

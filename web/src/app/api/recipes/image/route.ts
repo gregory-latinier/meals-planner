@@ -1,9 +1,6 @@
-import { randomUUID } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import sharp from 'sharp'
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
+import { processAndStoreRecipeImage } from '@/lib/recipe-image'
 
 export async function POST(req: Request) {
   const session = await getSession()
@@ -25,29 +22,15 @@ export async function POST(req: Request) {
     }
 
     const arrayBuffer = await file.arrayBuffer()
-    const input = Buffer.from(arrayBuffer)
-
-    const output = await sharp(input)
-      .rotate()
-      .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
-      .jpeg({ quality: 80, mozjpeg: true })
-      .toBuffer({ resolveWithObject: true })
-
-    const { data, info } = output
-    const imageDir = join(process.cwd(), 'public', 'uploads', 'recipes')
-    await mkdir(imageDir, { recursive: true })
-
-    const filename = `${randomUUID()}.jpg`
-    const diskPath = join(imageDir, filename)
-    await writeFile(diskPath, data)
+    const stored = await processAndStoreRecipeImage(Buffer.from(arrayBuffer))
 
     return NextResponse.json({
       image: {
-        path: `/uploads/recipes/${filename}`,
-        mimeType: 'image/jpeg',
-        width: info.width ?? null,
-        height: info.height ?? null,
-        sizeBytes: info.size,
+        path: stored.path,
+        mimeType: stored.mimeType,
+        width: stored.width,
+        height: stored.height,
+        sizeBytes: stored.sizeBytes,
       },
     })
   } catch (err) {

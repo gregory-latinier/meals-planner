@@ -1,22 +1,17 @@
 import { POST } from '@/app/api/recipes/image/route'
+import { processAndStoreRecipeImage } from '@/lib/recipe-image'
 import { getSession } from '@/lib/session'
 
 jest.mock('@/lib/session', () => ({
   getSession: jest.fn(),
 }))
 
-jest.mock('node:crypto', () => ({
-  randomUUID: jest.fn(),
+jest.mock('@/lib/recipe-image', () => ({
+  processAndStoreRecipeImage: jest.fn(),
 }))
-
-jest.mock('node:fs/promises', () => ({
-  mkdir: jest.fn(),
-  writeFile: jest.fn(),
-}))
-
-jest.mock('sharp', () => jest.fn())
 
 const mockedGetSession = getSession as jest.MockedFunction<typeof getSession>
+const mockedProcessAndStoreRecipeImage = processAndStoreRecipeImage as jest.MockedFunction<typeof processAndStoreRecipeImage>
 
 describe('recipes image API', () => {
   beforeEach(() => {
@@ -71,34 +66,13 @@ describe('recipes image API', () => {
   it('POST /api/recipes/image stores optimized JPEG and returns metadata', async () => {
     mockedGetSession.mockResolvedValueOnce({ householdId: 'house-1' } as Awaited<ReturnType<typeof getSession>>)
 
-    const { randomUUID } = jest.requireMock('node:crypto') as { randomUUID: jest.Mock }
-    const { mkdir, writeFile } = jest.requireMock('node:fs/promises') as {
-      mkdir: jest.Mock
-      writeFile: jest.Mock
-    }
-    const sharpMock = jest.requireMock('sharp') as jest.Mock
-
-    randomUUID.mockReturnValueOnce('img-123')
-    mkdir.mockResolvedValueOnce(undefined)
-    writeFile.mockResolvedValueOnce(undefined)
-
-    const toBuffer = jest.fn().mockResolvedValue({
-      data: Buffer.from([9, 8, 7]),
-      info: {
-        width: 1200,
-        height: 800,
-        size: 34567,
-      },
+    mockedProcessAndStoreRecipeImage.mockResolvedValueOnce({
+      path: '/uploads/recipes/img-123.jpg',
+      mimeType: 'image/jpeg',
+      width: 1200,
+      height: 800,
+      sizeBytes: 34567,
     })
-
-    const sharpChain = {
-      rotate: jest.fn().mockReturnThis(),
-      resize: jest.fn().mockReturnThis(),
-      jpeg: jest.fn().mockReturnThis(),
-      toBuffer,
-    }
-
-    sharpMock.mockReturnValueOnce(sharpChain)
 
     const form = new FormData()
     form.append('image', new File([new Uint8Array([1, 2, 3, 4])], 'photo.png', { type: 'image/png' }))
@@ -122,10 +96,6 @@ describe('recipes image API', () => {
       },
     })
 
-    expect(mkdir).toHaveBeenCalledWith(expect.stringContaining('public'), { recursive: true })
-    expect(writeFile).toHaveBeenCalledWith(
-      expect.stringContaining('img-123.jpg'),
-      expect.any(Buffer)
-    )
+    expect(mockedProcessAndStoreRecipeImage).toHaveBeenCalledTimes(1)
   })
 })

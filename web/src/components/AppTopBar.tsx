@@ -3,6 +3,7 @@
 import React from 'react'
 import { AppBar, Box, IconButton, ToggleButton, ToggleButtonGroup, Toolbar, Tooltip, Typography } from '@mui/material'
 import LogoutIcon from '@mui/icons-material/Logout'
+import SettingsIcon from '@mui/icons-material/Settings'
 import WifiIcon from '@mui/icons-material/Wifi'
 import WifiOffIcon from '@mui/icons-material/WifiOff'
 import { useRouter } from 'next/navigation'
@@ -60,8 +61,14 @@ export default function AppTopBar() {
           </Box>
         </Tooltip>
 
+        <Tooltip title={t.nav.settings}>
+          <IconButton onClick={() => router.push('/settings')} color="inherit" aria-label={t.nav.settings}>
+            <SettingsIcon />
+          </IconButton>
+        </Tooltip>
+
         <Tooltip title={t.nav.logout}>
-          <IconButton onClick={handleLogout} color="inherit">
+          <IconButton onClick={handleLogout} color="inherit" aria-label={t.nav.logout}>
             <LogoutIcon />
           </IconButton>
         </Tooltip>

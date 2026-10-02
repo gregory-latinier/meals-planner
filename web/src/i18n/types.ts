@@ -92,6 +92,12 @@ export interface Messages {
     writeFromScratchOption: string
     importPhotoOption: string
     importUrlOption: string
+    importUrlHint: string
+    importUrlFieldLabel: string
+    importUrlFieldPlaceholder: string
+    importUrlAction: string
+    importUrlLoading: string
+    importUrlSuccess: string
     comingSoon: string
     statusDraft: string
     statusPublished: string
@@ -143,6 +149,9 @@ export interface Messages {
       instructionItemMaxLength: string
       loadFailed: string
       draftCreateFailed: string
+      importUrlRequired: string
+      importUrlInvalid: string
+      importUrlFailed: string
       saveFailed: string
       publishFailed: string
       imageUploadFailed: string
@@ -183,8 +192,34 @@ export interface Messages {
       notFound: string
     }
   }
+  settings: {
+    title: string
+    subtitle: string
+    backToApp: string
+    saveButton: string
+    saved: string
+    aiSection: {
+      title: string
+      description: string
+      modelLabel: string
+      apiKeyLabel: string
+      apiKeyHint: string
+      apiKeyConfigured: string
+      apiKeyNotConfigured: string
+      apiKeyUpdatedAtLabel: string
+      removeKeyButton: string
+      models: {
+        geminiFree: string
+      }
+    }
+    errors: {
+      loadFailed: string
+      saveFailed: string
+    }
+  }
   nav: {
     logout: string
+    settings: string
     realtimeConnected: string
     realtimeDisconnected: string
     live: string

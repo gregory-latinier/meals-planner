@@ -1,0 +1,115 @@
+import { NextRequest } from 'next/server'
+import { POST } from '@/app/api/recipes/import/web-url/route'
+import { prisma } from '@/lib/prisma'
+import { importRecipeFromWebUrl } from '@/lib/recipe-import-web-url'
+import { getSession } from '@/lib/session'
+
+jest.mock('@/lib/session', () => ({
+  getSession: jest.fn(),
+}))
+
+jest.mock('@/lib/prisma', () => ({
+  prisma: {
+    $queryRaw: jest.fn(),
+  },
+}))
+
+jest.mock('@/lib/recipe-import-web-url', () => ({
+  importRecipeFromWebUrl: jest.fn(),
+}))
+
+const mockedGetSession = getSession as jest.MockedFunction<typeof getSession>
+const mockedQueryRaw = prisma.$queryRaw as jest.MockedFunction<typeof prisma.$queryRaw>
+const mockedImportRecipeFromWebUrl = importRecipeFromWebUrl as jest.MockedFunction<typeof importRecipeFromWebUrl>
+
+describe('recipes import web url API', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('returns 401 when unauthenticated', async () => {
+    mockedGetSession.mockResolvedValueOnce(null)
+
+    const req = new NextRequest('http://localhost/api/recipes/import/web-url', {
+      method: 'POST',
+      body: JSON.stringify({ sourceUrl: 'https://example.com/recipe' }),
+    })
+
+    const res = await POST(req)
+    expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({ error: 'Unauthorized.' })
+  })
+
+  it('returns 400 for invalid URL payload', async () => {
+    mockedGetSession.mockResolvedValueOnce({ householdId: 'house-1' } as Awaited<ReturnType<typeof getSession>>)
+
+    const req = new NextRequest('http://localhost/api/recipes/import/web-url', {
+      method: 'POST',
+      body: JSON.stringify({ sourceUrl: 'notaurl' }),
+    })
+
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'Invalid URL.' })
+  })
+
+  it('returns imported recipe id on success and passes household key', async () => {
+    mockedGetSession.mockResolvedValueOnce({ householdId: 'house-1' } as Awaited<ReturnType<typeof getSession>>)
+    mockedQueryRaw.mockResolvedValueOnce([
+      { recipeExtractionModel: 'GEMINI_FREE', geminiApiKeyEncrypted: 'encrypted:abc' },
+    ] as never)
+    mockedImportRecipeFromWebUrl.mockResolvedValueOnce({ recipeId: 'recipe-1', imageImportWarning: null })
+
+    const req = new NextRequest('http://localhost/api/recipes/import/web-url', {
+      method: 'POST',
+      body: JSON.stringify({ sourceUrl: 'https://example.com/recipe' }),
+    })
+
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      recipe: { id: 'recipe-1' },
+      warnings: [],
+    })
+    expect(mockedImportRecipeFromWebUrl).toHaveBeenCalledWith({
+      householdId: 'house-1',
+      sourceUrl: 'https://example.com/recipe',
+      model: 'GEMINI_FREE',
+      householdGeminiApiKeyEncrypted: 'encrypted:abc',
+    })
+  })
+
+  it('returns 400 when AI extraction fails', async () => {
+    mockedGetSession.mockResolvedValueOnce({ householdId: 'house-1' } as Awaited<ReturnType<typeof getSession>>)
+    mockedQueryRaw.mockResolvedValueOnce([
+      { recipeExtractionModel: 'GEMINI_FREE', geminiApiKeyEncrypted: null },
+    ] as never)
+    mockedImportRecipeFromWebUrl.mockRejectedValueOnce(new Error('AI extraction failed.'))
+
+    const req = new NextRequest('http://localhost/api/recipes/import/web-url', {
+      method: 'POST',
+      body: JSON.stringify({ sourceUrl: 'https://example.com/recipe' }),
+    })
+
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'AI extraction failed.' })
+  })
+
+  it('returns 400 when source URL host is disallowed', async () => {
+    mockedGetSession.mockResolvedValueOnce({ householdId: 'house-1' } as Awaited<ReturnType<typeof getSession>>)
+    mockedQueryRaw.mockResolvedValueOnce([
+      { recipeExtractionModel: 'GEMINI_FREE', geminiApiKeyEncrypted: null },
+    ] as never)
+    mockedImportRecipeFromWebUrl.mockRejectedValueOnce(new Error('Source URL is not allowed.'))
+
+    const req = new NextRequest('http://localhost/api/recipes/import/web-url', {
+      method: 'POST',
+      body: JSON.stringify({ sourceUrl: 'https://example.com/recipe' }),
+    })
+
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'Source URL is not allowed.' })
+  })
+})

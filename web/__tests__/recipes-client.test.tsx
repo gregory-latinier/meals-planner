@@ -164,4 +164,71 @@ describe('RecipesClient', () => {
     const gridCard = await screen.findByTestId('recipe-grid-card')
     expect(window.getComputedStyle(gridCard).aspectRatio).toBe('1/1')
   })
+
+  it('imports recipe from URL and navigates to editor on success', async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(makeFetchResponse([
+        {
+          id: 'rec-1',
+          title: 'Tomato Soup',
+          status: 'draft',
+          updatedAt: '2026-01-02T00:00:00.000Z',
+          imagePath: null,
+          tags: [],
+        },
+      ]))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ recipe: { id: 'rec-imported' }, warnings: [] }),
+      } as Response) as unknown as typeof fetch
+
+    renderRecipes()
+
+    fireEvent.click(await screen.findByLabelText('Add recipe'))
+    fireEvent.click(screen.getByRole('button', { name: 'Import from URL' }))
+
+    fireEvent.change(screen.getByLabelText('Recipe URL'), {
+      target: { value: 'https://www.papillesetpupilles.fr/2016/01/rougail-saucisse.html/' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Import recipe' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/recipes/import/web-url', expect.objectContaining({ method: 'POST' }))
+    })
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith('/recipes/rec-imported/edit')
+    })
+  })
+
+  it('shows invalid URL error when URL import payload is invalid', async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(makeFetchResponse([
+        {
+          id: 'rec-1',
+          title: 'Tomato Soup',
+          status: 'draft',
+          updatedAt: '2026-01-02T00:00:00.000Z',
+          imagePath: null,
+          tags: [],
+        },
+      ]))
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ error: 'Invalid URL.' }),
+      } as Response) as unknown as typeof fetch
+
+    renderRecipes()
+
+    fireEvent.click(await screen.findByLabelText('Add recipe'))
+    fireEvent.click(screen.getByRole('button', { name: 'Import from URL' }))
+    fireEvent.change(screen.getByLabelText('Recipe URL'), {
+      target: { value: 'notaurl' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Import recipe' }))
+
+    await screen.findByText('Please enter a valid URL.')
+    expect(pushMock).not.toHaveBeenCalledWith('/recipes/rec-imported/edit')
+  })
 })

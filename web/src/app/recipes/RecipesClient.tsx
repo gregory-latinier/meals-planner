@@ -21,6 +21,7 @@ import {
   ToggleButtonGroup,
   Tooltip,
   Typography,
+  TextField,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import GridViewIcon from '@mui/icons-material/GridView'
@@ -54,7 +55,7 @@ const DEFAULT_ORDER: SortOrder = 'desc'
 const DEFAULT_VIEW: ViewMode = 'list'
 
 function readStoredSort(): { sortBy: SortField; order: SortOrder } {
-  const raw = globalThis.localStorage?.getItem(SORT_STORAGE_KEY)
+  const raw = window.localStorage.getItem(SORT_STORAGE_KEY)
   if (!raw) {
     return { sortBy: DEFAULT_SORT_BY, order: DEFAULT_ORDER }
   }
@@ -71,7 +72,7 @@ function readStoredSort(): { sortBy: SortField; order: SortOrder } {
 }
 
 function readStoredView(): ViewMode {
-  const raw = globalThis.localStorage?.getItem(VIEW_STORAGE_KEY)
+  const raw = window.localStorage.getItem(VIEW_STORAGE_KEY)
   return raw === 'grid' ? 'grid' : DEFAULT_VIEW
 }
 
@@ -131,24 +132,41 @@ function RecipeImage({ src, title, fallbackLabel, width, height }: RecipeImagePr
 export default function RecipesClient() {
   const router = useRouter()
   const { t } = useT()
-
-  const [sortBy, setSortBy] = useState<SortField>(() => readStoredSort().sortBy)
-  const [order, setOrder] = useState<SortOrder>(() => readStoredSort().order)
-  const [viewMode, setViewMode] = useState<ViewMode>(() => readStoredView())
+  const [isMounted, setIsMounted] = useState(false)
+  const [sortBy, setSortBy] = useState<SortField>(DEFAULT_SORT_BY)
+  const [order, setOrder] = useState<SortOrder>(DEFAULT_ORDER)
+  const [viewMode, setViewMode] = useState<ViewMode>(DEFAULT_VIEW)
   const [recipes, setRecipes] = useState<RecipeListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [chooserOpen, setChooserOpen] = useState(false)
+  const [urlImportOpen, setUrlImportOpen] = useState(false)
+  const [importUrlValue, setImportUrlValue] = useState('')
+  const [importUrlLoading, setImportUrlLoading] = useState(false)
+  const [importUrlError, setImportUrlError] = useState('')
 
   useEffect(() => {
+    const storedSort = readStoredSort()
+    const storedView = readStoredView()
+
+    setSortBy(storedSort.sortBy) // eslint-disable-line react-hooks/set-state-in-effect
+    setOrder(storedSort.order)
+    setViewMode(storedView)
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isMounted) return
     window.localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify({ sortBy, order }))
-  }, [sortBy, order])
+  }, [sortBy, order, isMounted])
 
   useEffect(() => {
+    if (!isMounted) return
     window.localStorage.setItem(VIEW_STORAGE_KEY, viewMode)
-  }, [viewMode])
+  }, [viewMode, isMounted])
 
   useEffect(() => {
+    if (!isMounted) return
     let active = true
 
     async function loadRecipes() {
@@ -179,7 +197,7 @@ export default function RecipesClient() {
     return () => {
       active = false
     }
-  }, [sortBy, order, t.recipes.errors.loadFailed])
+  }, [sortBy, order, t.recipes.errors.loadFailed, isMounted])
 
   async function startDraft() {
     setChooserOpen(false)
@@ -192,6 +210,44 @@ export default function RecipesClient() {
     }
 
     router.push(`/recipes/${data.recipe.id}/edit`)
+  }
+
+  async function importFromWebUrl() {
+    setImportUrlError('')
+
+    const sourceUrl = importUrlValue.trim()
+    if (!sourceUrl) {
+      setImportUrlError(t.recipes.errors.importUrlRequired)
+      return
+    }
+
+    setImportUrlLoading(true)
+    try {
+      const res = await fetch('/api/recipes/import/web-url', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sourceUrl }),
+      })
+      const data = await res.json()
+
+      if (!res.ok || !data?.recipe?.id) {
+        if (data?.error === 'Invalid URL.') {
+          setImportUrlError(t.recipes.errors.importUrlInvalid)
+          return
+        }
+        setImportUrlError(t.recipes.errors.importUrlFailed)
+        return
+      }
+
+      setChooserOpen(false)
+      router.push(`/recipes/${data.recipe.id}/edit`)
+    } catch {
+      setImportUrlError(t.recipes.errors.importUrlFailed)
+    } finally {
+      setImportUrlLoading(false)
+    }
   }
 
   return (
@@ -435,13 +491,38 @@ export default function RecipesClient() {
               </span>
             </Tooltip>
 
-            <Tooltip title={t.recipes.comingSoon}>
-              <span>
-                <Button fullWidth variant="outlined" startIcon={<LinkIcon />} disabled>
-                  {t.recipes.importUrlOption}
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<LinkIcon />}
+              onClick={() => {
+                setUrlImportOpen((prev) => !prev)
+                setImportUrlError('')
+              }}
+            >
+              {t.recipes.importUrlOption}
+            </Button>
+
+            {urlImportOpen && (
+              <Box sx={{ display: 'grid', gap: 1.5, p: 1.5, borderRadius: 1, bgcolor: 'action.hover' }}>
+                <Typography variant="body2" color="text.secondary">
+                  {t.recipes.importUrlHint}
+                </Typography>
+                <TextField
+                  fullWidth
+                  type="url"
+                  label={t.recipes.importUrlFieldLabel}
+                  placeholder={t.recipes.importUrlFieldPlaceholder}
+                  value={importUrlValue}
+                  onChange={(event) => setImportUrlValue(event.target.value)}
+                  disabled={importUrlLoading}
+                />
+                {importUrlError && <Alert severity="error">{importUrlError}</Alert>}
+                <Button variant="contained" onClick={() => void importFromWebUrl()} disabled={importUrlLoading}>
+                  {importUrlLoading ? t.recipes.importUrlLoading : t.recipes.importUrlAction}
                 </Button>
-              </span>
-            </Tooltip>
+              </Box>
+            )}
           </Box>
         </Box>
       </Drawer>

@@ -58,3 +58,7 @@ Dockerfile.web.dev
 .opencode/
 opencode.json
 docs-internal
+
+# ── Runtime uploads ───────────────────────────────────────────────────────────
+web/public/uploads/recipes/*
+!web/public/uploads/recipes/.gitkeep
