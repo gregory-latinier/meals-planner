@@ -368,7 +368,7 @@ const GEMINI_MODEL_BY_RECIPE_EXTRACTION_MODEL: Record<RecipeExtractionModel, str
 export const MISSING_GEMINI_API_KEY_ERROR =
   'Missing Gemini API key. Configure one in Settings or set GEMINI_API_KEY/GOOGLE_API_KEY.'
 
-function mapDbModelToGeminiModel(model: RecipeExtractionModel): string {
+export function mapRecipeExtractionModelToGeminiModel(model: RecipeExtractionModel): string {
   return GEMINI_MODEL_BY_RECIPE_EXTRACTION_MODEL[model]
 }
 
@@ -836,7 +836,7 @@ export async function importRecipeFromWebUrl(
   const safeSourceUrl = await assertSafeRemoteHttpUrl(input.sourceUrl)
   const html = await fetchHtml(safeSourceUrl, fetchImpl)
   const context = extractContextFromHtml(html, safeSourceUrl)
-  const model = mapDbModelToGeminiModel(input.model)
+  const model = mapRecipeExtractionModelToGeminiModel(input.model)
 
   const extractionPrompt = buildExtractionPrompt(safeSourceUrl, context)
   const aiRaw = await callGeminiJson<unknown>(

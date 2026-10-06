@@ -19,7 +19,6 @@ import {
   Tabs,
   ToggleButton,
   ToggleButtonGroup,
-  Tooltip,
   Typography,
   TextField,
 } from '@mui/material'
@@ -28,7 +27,6 @@ import GridViewIcon from '@mui/icons-material/GridView'
 import ImageNotSupportedOutlinedIcon from '@mui/icons-material/ImageNotSupportedOutlined'
 import ViewListIcon from '@mui/icons-material/ViewList'
 import LinkIcon from '@mui/icons-material/Link'
-import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import EditNoteIcon from '@mui/icons-material/EditNote'
 import { useRouter } from 'next/navigation'
 import MobileBottomNav from '@/components/MobileBottomNav'
@@ -144,6 +142,10 @@ export default function RecipesClient() {
   const [importUrlValue, setImportUrlValue] = useState('')
   const [importUrlLoading, setImportUrlLoading] = useState(false)
   const [importUrlError, setImportUrlError] = useState('')
+  const [textImportOpen, setTextImportOpen] = useState(false)
+  const [importTextValue, setImportTextValue] = useState('')
+  const [importTextLoading, setImportTextLoading] = useState(false)
+  const [importTextError, setImportTextError] = useState('')
 
   useEffect(() => {
     const storedSort = readStoredSort()
@@ -247,6 +249,44 @@ export default function RecipesClient() {
       setImportUrlError(t.recipes.errors.importUrlFailed)
     } finally {
       setImportUrlLoading(false)
+    }
+  }
+
+  async function importFromText() {
+    setImportTextError('')
+
+    const importText = importTextValue.trim()
+    if (!importText) {
+      setImportTextError(t.recipes.errors.importTextRequired)
+      return
+    }
+
+    setImportTextLoading(true)
+    try {
+      const res = await fetch('/api/recipes/import/text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ importText }),
+      })
+      const data = await res.json()
+
+      if (!res.ok || !data?.recipe?.id) {
+        if (data?.error === 'Invalid import text.') {
+          setImportTextError(t.recipes.errors.importTextInvalid)
+          return
+        }
+        setImportTextError(t.recipes.errors.importTextFailed)
+        return
+      }
+
+      setChooserOpen(false)
+      router.push(`/recipes/${data.recipe.id}/edit`)
+    } catch {
+      setImportTextError(t.recipes.errors.importTextFailed)
+    } finally {
+      setImportTextLoading(false)
     }
   }
 
@@ -377,7 +417,7 @@ export default function RecipesClient() {
                     {recipe.tags.length > 0 && (
                       <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mt: 1 }}>
                         {recipe.tags.map((tag) => (
-                          <Chip key={tag.id} size="small" label={tag.name} variant="outlined" />
+                          <Chip key={tag.id} size="small" label={tag.name} />
                         ))}
                       </Box>
                     )}
@@ -442,9 +482,9 @@ export default function RecipesClient() {
                   )}
                 </Box>
                 {recipe.tags.length > 0 && (
-                  <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
                     {recipe.tags.map((tag) => (
-                      <Chip key={tag.id} size="small" label={tag.name} variant="outlined" />
+                      <Chip key={tag.id} size="small" label={tag.name} />
                     ))}
                   </Box>
                 )}
@@ -476,13 +516,39 @@ export default function RecipesClient() {
               {t.recipes.writeFromScratchOption}
             </Button>
 
-            <Tooltip title={t.recipes.comingSoon}>
-              <span>
-                <Button fullWidth variant="outlined" startIcon={<PhotoCameraIcon />} disabled>
-                  {t.recipes.importPhotoOption}
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<EditNoteIcon />}
+              onClick={() => {
+                setTextImportOpen((prev) => !prev)
+                setImportTextError('')
+              }}
+            >
+              {t.recipes.importTextOption}
+            </Button>
+
+            {textImportOpen && (
+              <Box sx={{ display: 'grid', gap: 1.5, p: 1.5, borderRadius: 1, bgcolor: 'action.hover' }}>
+                <Typography variant="body2" color="text.secondary">
+                  {t.recipes.importTextHint}
+                </Typography>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={5}
+                  label={t.recipes.importTextFieldLabel}
+                  placeholder={t.recipes.importTextFieldPlaceholder}
+                  value={importTextValue}
+                  onChange={(event) => setImportTextValue(event.target.value)}
+                  disabled={importTextLoading}
+                />
+                {importTextError && <Alert severity="error">{importTextError}</Alert>}
+                <Button variant="contained" onClick={() => void importFromText()} disabled={importTextLoading}>
+                  {importTextLoading ? t.recipes.importTextLoading : t.recipes.importTextAction}
                 </Button>
-              </span>
-            </Tooltip>
+              </Box>
+            )}
 
             <Button
               fullWidth

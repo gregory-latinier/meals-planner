@@ -162,6 +162,23 @@ describe('RecipesClient', () => {
     expect(screen.getByText('Draft')).not.toBeNull()
   })
 
+  it('renders recipe tags in list view when present', async () => {
+    renderRecipes()
+
+    await screen.findByText('Tomato Soup')
+    expect(screen.getByText('quick')).not.toBeNull()
+  })
+
+  it('renders recipe tags in grid view when present', async () => {
+    renderRecipes()
+
+    await screen.findByText('Tomato Soup')
+    fireEvent.click(screen.getByRole('button', { name: 'Grid' }))
+
+    await screen.findByTestId('recipe-grid-card')
+    expect(screen.getByText('quick')).not.toBeNull()
+  })
+
   it('uses square aspect ratio for recipe cards in grid view', async () => {
     renderRecipes()
 
@@ -206,6 +223,73 @@ describe('RecipesClient', () => {
     await waitFor(() => {
       expect(pushMock).toHaveBeenCalledWith('/recipes/rec-imported/edit')
     })
+  })
+
+  it('imports recipe from text and navigates to editor on success', async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(makeFetchResponse([
+        {
+          id: 'rec-1',
+          title: 'Tomato Soup',
+          status: 'draft',
+          updatedAt: '2026-01-02T00:00:00.000Z',
+          imagePath: null,
+          tags: [],
+        },
+      ]))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ recipe: { id: 'rec-from-text' } }),
+      } as Response) as unknown as typeof fetch
+
+    renderRecipes()
+
+    fireEvent.click(await screen.findByLabelText('Add recipe'))
+    fireEvent.click(screen.getByRole('button', { name: 'Import from text' }))
+
+    fireEvent.change(screen.getByLabelText('Recipe text'), {
+      target: { value: 'Ingredients: 2 tomatoes\nInstructions: mix and cook' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Import recipe from text' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/recipes/import/text', expect.objectContaining({ method: 'POST' }))
+    })
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith('/recipes/rec-from-text/edit')
+    })
+  })
+
+  it('shows invalid text error when text import payload is invalid', async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(makeFetchResponse([
+        {
+          id: 'rec-1',
+          title: 'Tomato Soup',
+          status: 'draft',
+          updatedAt: '2026-01-02T00:00:00.000Z',
+          imagePath: null,
+          tags: [],
+        },
+      ]))
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ error: 'Invalid import text.' }),
+      } as Response) as unknown as typeof fetch
+
+    renderRecipes()
+
+    fireEvent.click(await screen.findByLabelText('Add recipe'))
+    fireEvent.click(screen.getByRole('button', { name: 'Import from text' }))
+    fireEvent.change(screen.getByLabelText('Recipe text'), {
+      target: { value: '   ' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Import recipe from text' }))
+
+    await screen.findByText('Recipe text is required.')
+    expect(pushMock).not.toHaveBeenCalledWith('/recipes/rec-from-text/edit')
   })
 
   it('shows invalid URL error when URL import payload is invalid', async () => {

@@ -91,7 +91,12 @@ export interface Messages {
     addFabAriaLabel: string
     addChooserTitle: string
     writeFromScratchOption: string
-    importPhotoOption: string
+    importTextOption: string
+    importTextHint: string
+    importTextFieldLabel: string
+    importTextFieldPlaceholder: string
+    importTextAction: string
+    importTextLoading: string
     importUrlOption: string
     importUrlHint: string
     importUrlFieldLabel: string
@@ -160,6 +165,9 @@ export interface Messages {
       instructionItemMaxLength: string
       loadFailed: string
       draftCreateFailed: string
+      importTextRequired: string
+      importTextInvalid: string
+      importTextFailed: string
       importUrlRequired: string
       importUrlInvalid: string
       importUrlFailed: string
