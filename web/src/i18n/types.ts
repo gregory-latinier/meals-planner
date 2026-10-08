@@ -104,6 +104,21 @@ export interface Messages {
     importUrlAction: string
     importUrlLoading: string
     importUrlSuccess: string
+    instagramImport: {
+      title: string
+      subtitle: string
+      urlLabel: string
+      urlPlaceholder: string
+      importAction: string
+      importLoading: string
+      cancelAction: string
+      errors: {
+        required: string
+        invalidUrl: string
+        notInstagramHost: string
+        unsupportedInstagramPath: string
+      }
+    }
     comingSoon: string
     statusDraft: string
     statusPublished: string

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const PUBLIC_PATHS = [
   '/login',
+  '/share-target',
   '/forgot-password',
   '/reset-password',
   '/api/auth/login',
@@ -25,6 +26,8 @@ export function middleware(req: NextRequest) {
 
   if (!sessionCookie?.value) {
     const loginUrl = new URL('/login', req.url)
+    const nextPath = `${req.nextUrl.pathname}${req.nextUrl.search}`
+    loginUrl.searchParams.set('next', nextPath)
     return NextResponse.redirect(loginUrl)
   }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { Suspense, useState } from 'react'
 import {
   Box,
   Card,
@@ -14,16 +14,18 @@ import {
   Container,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useT } from '@/i18n/I18nContext'
+import { getSafeNextPath } from '@/lib/safe-next'
 
 const API_ERROR_MAP: Record<string, string> = {
   'Incorrect password.': 'errorIncorrect',
   'Too many attempts. Please try again later.': 'errorTooMany',
 }
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { t } = useT()
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -54,7 +56,8 @@ export default function LoginPage() {
         return
       }
 
-      router.push('/recipes')
+      const nextPath = getSafeNextPath(searchParams.get('next'))
+      router.push(nextPath)
       router.refresh()
     } catch {
       setError(t.auth.login.errorNetwork)
@@ -129,5 +132,13 @@ export default function LoginPage() {
         </Card>
       </Container>
     </Box>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
   )
 }
