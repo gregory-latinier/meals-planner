@@ -352,10 +352,10 @@ Using an FTP client (FileZilla, Cyberduck, etc.):
 4. Click **Create**.
 5. Once created:
    - Click **Run NPM Install** to install dependencies on the server.
-   - In the **Run JS Script** dropdown:
-     1. Select and run **`db:deploy`** (applies Prisma schema migrations to PostgreSQL).
-     2. Select and run **`db:seed`** (creates the initial household account using `HOUSEHOLD_PASSWORD`).
-     3. Select and run **`build`** (compiles the Next.js production bundle).
+   - Run database seed:
+     In the **Run JS Script** dropdown, select and run **`db:seed`** (creates the initial household account using `HOUSEHOLD_PASSWORD` via direct PostgreSQL query).
+   - In the **Run JS Script** dropdown, select and run **`build`** (compiles the Next.js production bundle).
+   *(Note: Database migrations should be executed directly via phpPgAdmin or from your development machine, as CloudLinux LVE limits prevent the Prisma WebAssembly engine from running migrations/generation inside shared cPanel).*
 6. Click **Restart**.
 
 ---
