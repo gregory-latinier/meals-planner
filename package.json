@@ -14,6 +14,7 @@
     "test": "pnpm --filter web test && pnpm --filter realtime test",
     "lint": "pnpm --filter web lint",
     "db:migrate": "pnpm --filter web db:migrate",
+    "db:deploy": "pnpm --filter web db:deploy",
     "db:seed": "pnpm --filter web db:seed",
     "db:studio": "pnpm --filter web db:studio"
   },
