@@ -320,7 +320,7 @@ Because Prisma CLI cannot run inside the restricted CloudLinux environment, data
 4. Copy and execute each file's SQL content in phpPgAdmin.
 
 #### 2. Seed Initial Household Account
-In phpPgAdmin's **SQL** tab, run the following query to create your household account (generates a bcrypt hash for password `rcGnaiQriyt3B56Z`):
+In phpPgAdmin's **SQL** tab, run the following query to create your household account. Replace `<YOUR_BCRYPT_HASH>` with a bcrypt hash of your chosen household password:
 
 ```sql
 INSERT INTO "Household" (
@@ -331,14 +331,19 @@ INSERT INTO "Household" (
   "updatedAt"
 ) VALUES (
   'cm' || lower(substr(md5(random()::text), 1, 23)),
-  '$2a$12$dqWKk3yd0Y3LluL4106lw.FJiw0FkdV7aYyFAFvLXAjyVHsWLB48q',
+  '<YOUR_BCRYPT_HASH>',
   'GEMINI_FREE',
   NOW(),
   NOW()
 );
 ```
 
-*(To use a custom password instead, compute the bcrypt hash locally using `node -e "require('bcryptjs').hash('YOUR_PASSWORD', 12).then(console.log)"` and replace the hash above).*
+> **How to generate your bcrypt hash locally**:
+> Run in your local terminal:
+> ```bash
+> node -e "require('bcryptjs').hash('YOUR_PASSWORD', 12).then(console.log)"
+> ```
+> Then paste the resulting string (e.g. `$2a$12$...`) into `<YOUR_BCRYPT_HASH>`.
 
 ---
 

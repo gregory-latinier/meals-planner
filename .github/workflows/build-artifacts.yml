@@ -42,13 +42,12 @@ jobs:
         run: |
           mkdir -p dist-web
 
-          # Copy standalone output
-          # In Next.js with monorepo tracing, standalone contents may reside in web/.next/standalone/web
+          # Copy standalone output including hidden dotfiles/folders like .next
           if [ -d "web/.next/standalone/web" ]; then
-            cp -rL web/.next/standalone/web/* dist-web/
+            cp -rL web/.next/standalone/web/. dist-web/
             cp -rL web/.next/standalone/node_modules dist-web/
           else
-            cp -rL web/.next/standalone/* dist-web/
+            cp -rL web/.next/standalone/. dist-web/
           fi
 
           # Ensure .prisma client files (including compiled engines) are dereferenced into node_modules/.prisma
@@ -60,7 +59,7 @@ jobs:
           # Copy Phusion Passenger server.js wrapper
           cp web/server.js dist-web/server.js
 
-          # Copy static assets required by Next.js standalone
+          # Copy static assets required by Next.js standalone into .next/static
           mkdir -p dist-web/.next
           cp -r web/.next/static dist-web/.next/static
 
@@ -69,6 +68,11 @@ jobs:
 
           # Copy prisma directory
           cp -r web/prisma dist-web/prisma
+
+          # Ensure hidden files like .next are included when uploaded by creating a zip archive
+          cd dist-web
+          zip -r -q ../web-production.zip .
+          cd ..
 
       - name: Package Realtime Production Artifact
         run: |
@@ -80,18 +84,19 @@ jobs:
           # Install production-only dependencies
           cd dist-realtime
           npm install --omit=dev --no-audit --no-fund
+          zip -r -q ../realtime-production.zip .
           cd ..
 
       - name: Upload Web Production Artifact
         uses: actions/upload-artifact@v4
         with:
           name: web-production
-          path: dist-web/
+          path: web-production.zip
           retention-days: 30
 
       - name: Upload Realtime Production Artifact
         uses: actions/upload-artifact@v4
         with:
           name: realtime-production
-          path: dist-realtime/
+          path: realtime-production.zip
           retention-days: 30
