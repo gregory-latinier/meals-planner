@@ -1,0 +1,97 @@
+name: Build & Package Deployment Artifacts
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Web & Realtime Artifacts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.10.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm --filter web db:generate
+
+      - name: Build Web Application
+        run: pnpm --filter web build
+
+      - name: Build Realtime Service
+        run: pnpm --filter realtime build
+
+      - name: Package Web Production Artifact
+        run: |
+          mkdir -p dist-web
+
+          # Copy standalone output
+          # In Next.js with monorepo tracing, standalone contents may reside in web/.next/standalone/web
+          if [ -d "web/.next/standalone/web" ]; then
+            cp -rL web/.next/standalone/web/* dist-web/
+            cp -rL web/.next/standalone/node_modules dist-web/
+          else
+            cp -rL web/.next/standalone/* dist-web/
+          fi
+
+          # Ensure .prisma client files (including compiled engines) are dereferenced into node_modules/.prisma
+          if [ -d "web/.next/standalone/node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/.prisma" ]; then
+            mkdir -p dist-web/node_modules/.prisma
+            cp -rL web/.next/standalone/node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/.prisma/* dist-web/node_modules/.prisma/
+          fi
+
+          # Copy Phusion Passenger server.js wrapper
+          cp web/server.js dist-web/server.js
+
+          # Copy static assets required by Next.js standalone
+          mkdir -p dist-web/.next
+          cp -r web/.next/static dist-web/.next/static
+
+          # Copy public directory
+          cp -r web/public dist-web/public
+
+          # Copy prisma directory
+          cp -r web/prisma dist-web/prisma
+
+      - name: Package Realtime Production Artifact
+        run: |
+          mkdir -p dist-realtime
+          cp -r realtime/dist dist-realtime/dist
+          cp realtime/server.js dist-realtime/server.js
+          cp realtime/package.json dist-realtime/package.json
+
+          # Install production-only dependencies
+          cd dist-realtime
+          npm install --omit=dev --no-audit --no-fund
+          cd ..
+
+      - name: Upload Web Production Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-production
+          path: dist-web/
+          retention-days: 30
+
+      - name: Upload Realtime Production Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: realtime-production
+          path: dist-realtime/
+          retention-days: 30

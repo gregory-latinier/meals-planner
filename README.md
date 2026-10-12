@@ -312,16 +312,19 @@ o2switch runs CloudLinux and cPanel with Phusion Passenger. The monorepo compone
 
 ---
 
-### Step 3 — Upload Source Code via FTP
+### Step 3 — Build & Package Production Artifacts (Recommended via GitHub Actions)
 
-Using an FTP client (FileZilla, Cyberduck, etc.):
+Because CloudLinux LVE limits on shared hosts like o2switch restrict memory for WebAssembly and heavy Node.js compilation, builds and Prisma engine generation are pre-packaged via **GitHub Actions**.
 
-1. **Upload Web App**:
-   - Upload the contents of the local `web/` folder into `/home/<cpaneluser>/meals-web/`
-   - *Do not upload `node_modules` or `.next` (they will be built on the server).*
-2. **Upload Realtime Service**:
-   - Upload the contents of the local `realtime/` folder into `/home/<cpaneluser>/meals-realtime/`
-   - *Do not upload `node_modules` or `dist`.*
+1. **Trigger / Download GitHub Actions Artifacts**:
+   - Push to `main` (or trigger the **Build & Package Deployment Artifacts** workflow manually in GitHub under the **Actions** tab).
+   - Once completed, download the two zip archives from the workflow run:
+     - `web-production.zip`
+     - `realtime-production.zip`
+2. **Deploy Artifacts on o2switch (via cPanel File Manager or FTP)**:
+   - Extract `web-production.zip` directly into your web application root (e.g., `/home/<cpaneluser>/meals-web/` or `/home/<cpaneluser>/repas/`).
+   - Extract `realtime-production.zip` directly into your realtime application root (e.g., `/home/<cpaneluser>/meals-realtime/`).
+   *(These archives already include compiled bundles, pre-generated Linux Prisma engines, and production dependencies; no server-side build or npm install is required).*
 
 ---
 
@@ -351,12 +354,8 @@ Using an FTP client (FileZilla, Cyberduck, etc.):
 
 4. Click **Create**.
 5. Once created:
-   - Click **Run NPM Install** to install dependencies on the server.
-   - Run database seed:
-     In the **Run JS Script** dropdown, select and run **`db:seed`** (creates the initial household account using `HOUSEHOLD_PASSWORD` via direct PostgreSQL query).
-   - In the **Run JS Script** dropdown, select and run **`build`** (compiles the Next.js production bundle).
-   *(Note: Database migrations should be executed directly via phpPgAdmin or from your development machine, as CloudLinux LVE limits prevent the Prisma WebAssembly engine from running migrations/generation inside shared cPanel).*
-6. Click **Restart**.
+   - Ensure database migrations and initial household seed have been executed (via phpPgAdmin SQL).
+   - Click **Restart Application**.
 
 ---
 
@@ -376,10 +375,7 @@ Using an FTP client (FileZilla, Cyberduck, etc.):
 | `NODE_ENV` | `production` | Production environment |
 
 3. Click **Create**.
-4. Once created:
-   - Click **Run NPM Install**.
-   - In the **Run JS Script** dropdown, select and run **`build`** (compiles TypeScript to `dist/`).
-5. Click **Restart**.
+4. Click **Restart Application**.
 
 ---
 
