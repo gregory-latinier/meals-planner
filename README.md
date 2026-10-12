@@ -272,6 +272,143 @@ cat backup.sql | docker exec -i meals-planner-db-1 psql -U mpuser mealsplanner
 | Login fails | `SESSION_SECRET` must be stable across restarts |
 | Migration errors | `DATABASE_URL` must use `db` as hostname (not `localhost`) |
 
+---
+
+## Deploy to o2switch (cPanel — FTP & UI)
+
+Deploy Meals Planner directly on **o2switch** using cPanel's native PostgreSQL, the **Setup Node.js App** interface (Phusion Passenger), and FTP. No local build tooling or SSH access is required on your machine.
+
+### Architecture Overview
+
+o2switch runs CloudLinux and cPanel with Phusion Passenger. The monorepo components are deployed as two independent Node.js applications:
+
+- **Web Application (`meals.<yourdomain>`)**: Next.js app served via `server.js`.
+- **Realtime Service (`realtime.<yourdomain>`)**: Socket.IO realtime daemon served via `server.js`.
+- **Database**: Local PostgreSQL instance hosted natively in cPanel on `localhost:5432`.
+
+---
+
+### Step 1 — Create PostgreSQL Database in cPanel
+
+1. In cPanel, navigate to **Bases de données PostgreSQL** (PostgreSQL Databases).
+2. **Create Database**: e.g., `<cpaneluser>_mealsplanner`.
+3. **Create User**: e.g., `<cpaneluser>_mpuser` with a strong password.
+4. **Associate User**: Add the user to the database and grant **All Privileges**.
+5. Note your internal database connection string:
+   ```text
+   postgresql://<cpaneluser>_mpuser:<password>@localhost:5432/<cpaneluser>_mealsplanner
+   ```
+
+---
+
+### Step 2 — Configure Subdomains and SSL
+
+1. In cPanel, navigate to **Domaines** or **Sous-domaines**:
+   - Create `meals.<yourdomain>` (Document root: e.g. `/home/<cpaneluser>/meals-web/public`).
+   - Create `realtime.<yourdomain>` (Document root: e.g. `/home/<cpaneluser>/meals-realtime/public`).
+2. Go to **SSL/TLS Status** in cPanel:
+   - Select both subdomains.
+   - Click **Run AutoSSL** to issue free Let's Encrypt certificates.
+
+---
+
+### Step 3 — Upload Source Code via FTP
+
+Using an FTP client (FileZilla, Cyberduck, etc.):
+
+1. **Upload Web App**:
+   - Upload the contents of the local `web/` folder into `/home/<cpaneluser>/meals-web/`
+   - *Do not upload `node_modules` or `.next` (they will be built on the server).*
+2. **Upload Realtime Service**:
+   - Upload the contents of the local `realtime/` folder into `/home/<cpaneluser>/meals-realtime/`
+   - *Do not upload `node_modules` or `dist`.*
+
+---
+
+### Step 4 — Configure Web Application (`meals.<yourdomain>`) in cPanel
+
+1. Open **Configurer une application Node.js** (Setup Node.js App) in cPanel.
+2. Click **Create Application**:
+   - **Node.js version**: `20.x` (or latest supported LTS)
+   - **Application mode**: `Production`
+   - **Application root**: `meals-web`
+   - **Application URL**: `meals.<yourdomain>`
+   - **Application startup file**: `server.js`
+3. Add the following **Environment Variables**:
+
+| Variable | Value | Description |
+|---|---|---|
+| `DATABASE_URL` | `postgresql://<user>:<password>@localhost:5432/<db>` | Internal PostgreSQL connection string |
+| `SESSION_SECRET` | `<64-character-hex-string>` | Random hex key for session cookies |
+| `HOUSEHOLD_GEMINI_KEY_ENCRYPTION_SECRET` | `<64-character-hex-string>` | Random hex key for Gemini API key encryption |
+| `HOUSEHOLD_PASSWORD` | `<your-household-password>` | Initial login password for the household |
+| `NEXT_PUBLIC_APP_URL` | `https://meals.<yourdomain>` | Public web URL |
+| `NEXT_PUBLIC_REALTIME_URL` | `https://realtime.<yourdomain>` | Public Socket.IO realtime URL |
+| `CLIENT_URL` | `https://meals.<yourdomain>` | Client URL |
+| `NODE_ENV` | `production` | Production environment |
+
+> Generate 64-char hex strings using Node: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+
+4. Click **Create**.
+5. Once created:
+   - Click **Run NPM Install** to install dependencies on the server.
+   - In the **Run JS Script** dropdown:
+     1. Select and run **`db:deploy`** (applies Prisma schema migrations to PostgreSQL).
+     2. Select and run **`db:seed`** (creates the initial household account using `HOUSEHOLD_PASSWORD`).
+     3. Select and run **`build`** (compiles the Next.js production bundle).
+6. Click **Restart**.
+
+---
+
+### Step 5 — Configure Realtime Service (`realtime.<yourdomain>`) in cPanel
+
+1. In **Setup Node.js App**, click **Create Application**:
+   - **Node.js version**: `20.x`
+   - **Application mode**: `Production`
+   - **Application root**: `meals-realtime`
+   - **Application URL**: `realtime.<yourdomain>`
+   - **Application startup file**: `server.js`
+2. Add **Environment Variables**:
+
+| Variable | Value | Description |
+|---|---|---|
+| `CLIENT_URL` | `https://meals.<yourdomain>` | Allowed CORS origin for Socket.IO |
+| `NODE_ENV` | `production` | Production environment |
+
+3. Click **Create**.
+4. Once created:
+   - Click **Run NPM Install**.
+   - In the **Run JS Script** dropdown, select and run **`build`** (compiles TypeScript to `dist/`).
+5. Click **Restart**.
+
+---
+
+### Step 6 — Verify
+
+1. **Check Realtime Health**:
+   Visit `https://realtime.<yourdomain>/health` in your browser. It should return:
+   ```json
+   {"status":"ok","connections":0}
+   ```
+2. **Access Web App**:
+   Visit `https://meals.<yourdomain>`.
+   - Log in using your configured `HOUSEHOLD_PASSWORD`.
+   - The top navigation bar should show the realtime connection indicator as green/active.
+
+---
+
+### Updating on o2switch
+
+When deploying new updates via FTP:
+1. Upload the modified files to `meals-web` and/or `meals-realtime`.
+2. In cPanel **Setup Node.js App**:
+   - If dependencies changed, click **Run NPM Install**.
+   - For `meals-web`: run script **`db:deploy`** (if migrations were added), then run script **`build`**.
+   - For `meals-realtime`: run script **`build`** (if realtime code changed).
+   - Click **Restart** on the updated application(s).
+
+---
+
 ## Feature Development Workflow
 
 Feature requests are handled **automatically** — no manual agent handoff needed.
