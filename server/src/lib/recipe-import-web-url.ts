@@ -288,6 +288,14 @@ function isInstagramUrl(url: string): boolean {
   }
 }
 
+/** Node's fetch only says "fetch failed"; the useful part (ENOTFOUND, ECONNRESET, ETIMEDOUT...) is in `cause`. */
+export function describeNetworkError(err: unknown): string {
+  if (!(err instanceof Error)) return 'unknown network error'
+  const cause = (err as Error & { cause?: { code?: string; message?: string } }).cause
+  const detail = cause?.code ?? cause?.message
+  return detail ? `${err.message}: ${detail}` : err.message
+}
+
 function buildHtmlRequestHeaders(url: string): Record<string, string> {
   return {
     Accept: 'text/html,application/xhtml+xml',
@@ -362,6 +370,9 @@ async function fetchHtml(sourceUrl: string, fetchImpl: typeof fetch): Promise<st
       throw new Error(
         `Source page did not answer within ${HTML_FETCH_TIMEOUT_MS / 1000}s (the site may be blocking the server).`
       )
+    }
+    if (err instanceof TypeError && err.message === 'fetch failed') {
+      throw new Error(`Could not reach the source site (${describeNetworkError(err)}).`)
     }
     throw err
   } finally {
@@ -442,28 +453,33 @@ export async function callGeminiJson<T>(
   const apiKey = getGeminiApiKey(householdGeminiApiKeyEncrypted)
   const endpoint = buildGeminiGenerateContentEndpoint(model)
 
-  const response = await fetchImpl(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': apiKey,
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: prompt }],
-        },
-      ],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.2,
+  let response: Response
+  try {
+    response = await fetchImpl(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
       },
-    }),
-  })
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: prompt }],
+          },
+        ],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.2,
+        },
+      }),
+    })
+  } catch (err: unknown) {
+    throw new Error(`Could not reach the Gemini API (${describeNetworkError(err)}).`)
+  }
 
   if (!response.ok) {
-    throw new Error('AI extraction failed.')
+    throw new Error(`AI extraction failed (Gemini HTTP ${response.status}).`)
   }
 
   const body = (await response.json()) as {

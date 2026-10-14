@@ -507,6 +507,7 @@ export const recipeRoutes: FastifyPluginAsync = async (fastify) => {
       })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Import failed'
+      request.log.error({ err }, 'Recipe import from text failed')
       if (message === MISSING_GEMINI_API_KEY_ERROR) {
         return reply.status(400).send({ error: message })
       }
