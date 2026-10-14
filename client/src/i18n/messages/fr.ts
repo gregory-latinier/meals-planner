@@ -141,6 +141,7 @@ const fr: Messages = {
     metaServings: 'Portions : {{value}}',
     metaPrepMinutes: 'Préparation : {{value}} min',
     metaCookMinutes: 'Cuisson : {{value}} min',
+    metaTotalTime: 'Total : {{value}}',
     titleLabel: 'Titre',
     cookbookLabel: 'Livre de recettes',
     noCookbookOption: 'Aucun livre',

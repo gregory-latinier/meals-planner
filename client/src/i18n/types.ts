@@ -139,6 +139,7 @@ export interface Messages {
     metaServings: string
     metaPrepMinutes: string
     metaCookMinutes: string
+    metaTotalTime: string
     titleLabel: string
     cookbookLabel: string
     noCookbookOption: string

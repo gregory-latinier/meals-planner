@@ -52,6 +52,7 @@ interface RecipeListItem {
   title: string
   status: 'draft' | 'published'
   prepMinutes: number | null
+  cookMinutes: number | null
   updatedAt: string
   imagePath: string | null
   tags: { id: string; name: string }[]
@@ -61,7 +62,16 @@ function formatTemplate(template: string, value: string | number): string {
   return template.replace(/\{\{\s*value\s*\}\}/g, String(value))
 }
 
-const SORT_STORAGE_KEY = 'mp_recipes_sort'
+/** Prep + cook time as "45 min" or "1 h 05"; null when neither is set. */
+function formatTotalTime(recipe: RecipeListItem): string | null {
+  const total = (recipe.prepMinutes ?? 0) + (recipe.cookMinutes ?? 0)
+  if (total <= 0) return null
+  if (total < 60) return `${total} min`
+  const minutes = total % 60
+  return `${Math.floor(total / 60)} h${minutes ? ` ${String(minutes).padStart(2, '0')}` : ''}`
+}
+
+const SORT_STORAGE_KEY ='mp_recipes_sort'
 const VIEW_STORAGE_KEY = 'mp_recipes_view'
 const DEFAULT_SORT_BY: SortField = 'updatedAt'
 const DEFAULT_ORDER: SortOrder = 'desc'
@@ -503,11 +513,11 @@ export default function RecipesPage() {
                             label={t.recipes.statusDraft}
                           />
                         )}
-                        {recipe.status === 'published' && recipe.prepMinutes !== null && (
+                        {formatTotalTime(recipe) && (
                           <Chip
                             size="small"
                             variant="outlined"
-                            label={formatTemplate(t.recipes.metaPrepMinutes, recipe.prepMinutes)}
+                            label={formatTemplate(t.recipes.metaTotalTime, formatTotalTime(recipe)!)}
                           />
                         )}
                         <Tooltip title={t.recipes.addToMealPlan}>
@@ -593,11 +603,11 @@ export default function RecipesPage() {
                         label={t.recipes.statusDraft}
                       />
                     )}
-                    {recipe.status === 'published' && recipe.prepMinutes !== null && (
+                    {formatTotalTime(recipe) && (
                       <Chip
                         size="small"
                         variant="outlined"
-                        label={formatTemplate(t.recipes.metaPrepMinutes, recipe.prepMinutes)}
+                        label={formatTemplate(t.recipes.metaTotalTime, formatTotalTime(recipe)!)}
                       />
                     )}
                   </Box>
