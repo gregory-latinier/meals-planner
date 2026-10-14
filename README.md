@@ -10,7 +10,7 @@ Household meal planning and grocery list app — built as an installable PWA des
 | Backend & Realtime | Fastify 5 + Socket.IO + TypeScript (`server/`) |
 | Database | PostgreSQL 16 via native `pg` client (no Prisma / no WebAssembly / no heavy engines) |
 | Migrations | `node-pg-migrate` |
-| Auth | Single shared household password, `bcryptjs`, signed HTTP-only session cookies |
+| Auth | Single shared household password, `bcryptjs`, HTTP-only cookie holding a random token stored in the `Session` table (long-lived, renewed while in use) |
 | Package manager | pnpm 10 (workspace: `client`, `server`) |
 | Containers | Docker for local development PostgreSQL only |
 
@@ -54,7 +54,7 @@ meals-planner/
 
 ```bash
 cp .env.example .env
-# Edit .env — set SESSION_SECRET and HOUSEHOLD_PASSWORD at minimum
+# Edit .env — set HOUSEHOLD_PASSWORD and HOUSEHOLD_GEMINI_KEY_ENCRYPTION_SECRET at minimum
 ```
 
 Also copy or link `.env` into `server/.env` if running backend standalone:
@@ -114,8 +114,10 @@ pnpm dev:client        # Vite SPA on http://localhost:5173
 | `pnpm dev:db:down` | Stop PostgreSQL Docker container |
 | `pnpm dev:db:logs` | Tail PostgreSQL container logs |
 | `pnpm build` | Compile backend (`tsc`) and bundle frontend (`vite build`) |
-| `pnpm db:migrate` | Run SQL migrations (`node-pg-migrate up`) |
-| `pnpm db:seed` | Seed initial household account |
+| `pnpm db:migrate` | Run SQL migrations from sources (`node-pg-migrate up`, local dev) |
+| `pnpm db:seed` | Seed initial household account (local dev) |
+| `migrate:prod` (in `server/`) | Run the compiled migrations (`dist/migrations`), used on o2switch |
+| `seed:prod` (in `server/`) | Run the compiled seed (`dist/db/seed.js`), used on o2switch |
 | `pnpm test` | Run test suite |
 
 ---
@@ -148,38 +150,7 @@ To guarantee complete stability:
 
 ---
 
-### Step 2 — Run Database Migrations in phpPgAdmin
-
-Because migrations can be executed once via SQL directly:
-1. In cPanel, open **phpPgAdmin** and select your database (e.g., `<cpaneluser>_meals`).
-2. Click the **SQL** tab.
-3. Open `server/migrations/001_initial_schema.ts` (or apply your migration script) or run the SQL table creation statements.
-4. Insert your initial household account with a bcrypt password hash:
-
-```sql
-INSERT INTO "Household" (
-  "id",
-  "passwordHash",
-  "recipeExtractionModel",
-  "createdAt",
-  "updatedAt"
-) VALUES (
-  'cm' || lower(substr(md5(random()::text), 1, 23)),
-  '<YOUR_BCRYPT_HASH>',
-  'GEMINI_FREE',
-  NOW(),
-  NOW()
-);
-```
-
-> **How to generate your bcrypt hash locally**:
-> ```bash
-> node -e "require('bcryptjs').hash('YOUR_STRONG_PASSWORD', 12).then(console.log)"
-> ```
-
----
-
-### Step 3 — Create Subdomain and Enable SSL
+### Step 2 — Create Subdomain and Enable SSL
 
 1. In cPanel, go to **Domaines** or **Sous-domaines**:
    - Create your subdomain, e.g. `meals.<yourdomain>`.
@@ -188,7 +159,7 @@ INSERT INTO "Household" (
 
 ---
 
-### Step 4 — Download Artifacts from GitHub Actions
+### Step 3 — Download Artifacts from GitHub Actions
 
 Every push to `main` (or manual trigger under **Actions** → **Build & Package Deployment Artifacts**) builds the production bundle:
 1. Go to your repository on GitHub and open the **Actions** tab.
@@ -197,45 +168,87 @@ Every push to `main` (or manual trigger under **Actions** → **Build & Package 
 
 ---
 
-### Step 5 — Upload and Deploy Artifacts on o2switch
+### Step 4 — Upload and Deploy Artifacts on o2switch
 
 Using cPanel **File Manager** or FTP:
 
-1. Create or open your application folder: `/home/<cpaneluser>/meals/`.
-2. Upload `server-artifact.zip` and extract its contents into `/home/<cpaneluser>/meals/`.
-   - Ensure `server.js`, `package.json`, `dist/`, and `node_modules/` reside in the app folder.
-3. Upload `client-artifact.zip` and extract its contents into `/home/<cpaneluser>/meals/client/dist/` (or serve directly as static files if configuring Apache/Nginx rewrite rules).
-4. Create an `uploads` directory at `/home/<cpaneluser>/meals/uploads` with write permissions.
+The server looks for the front-end at `../../client/dist` relative to its `dist/` folder. The zips are built so that extracting both of them into the same folder gives the right layout:
+
+```text
+/home/<cpaneluser>/meals/
+├── server/            <- Node.js application root (from server-artifact.zip)
+│   ├── server.js
+│   ├── package.json
+│   ├── dist/          <- compiled server + dist/migrations/ (compiled migrations)
+│   └── node_modules/
+├── client/
+│   └── dist/          <- index.html, assets/, manifest... (from client-artifact.zip)
+└── uploads/           <- recipe images (writable)
+```
+
+1. Create the folder `/home/<cpaneluser>/meals/`.
+2. Upload `server-artifact.zip` and `client-artifact.zip` there and extract **both** in place (each one contains its own top-level folder: `server/` and `client/`).
+3. Create the `uploads` directory at `/home/<cpaneluser>/meals/uploads` with write permissions.
+4. Check that `server/server.js`, `server/dist/index.js`, `server/dist/migrations/`, `server/node_modules/` and `client/dist/index.html` exist.
+
+> If the page shows `{"error":"Not found"}` or a blank 404 on `/`, the `client/dist` folder is not at the expected location.
 
 ---
 
-### Step 6 — Configure Node.js Application in cPanel
+### Step 5 — Configure Node.js Application in cPanel
 
 1. In cPanel, open **Configurer une application Node.js** (Setup Node.js App).
 2. Click **Create Application**:
    - **Node.js version**: `20.x`
    - **Application mode**: `Production`
-   - **Application root**: `meals`
+   - **Application root**: `meals/server`
    - **Application URL**: `meals.<yourdomain>`
    - **Application startup file**: `server.js`
 3. Add the following **Environment Variables**:
 
 | Variable | Value | Description |
 |---|---|---|
-| `DATABASE_URL` | `postgresql://<user>:<password>@localhost:5432/<db>` | PostgreSQL connection string |
-| `PORT` | `3001` (or Passenger port) | Internal application port |
-| `NODE_ENV` | `production` | Production environment flag |
-| `SESSION_SECRET` | `<64-character-hex-string>` | Key for signing session cookies |
-| `HOUSEHOLD_GEMINI_KEY_ENCRYPTION_SECRET` | `<64-character-hex-string>` | Key for encrypting Gemini API keys |
-| `CLIENT_URL` | `https://meals.<yourdomain>` | Allowed CORS origin |
-| `UPLOAD_DIR` | `/home/<cpaneluser>/meals/uploads` | Absolute path for recipe images |
+| `DATABASE_URL` | `postgresql://<user>:<password>@localhost:5432/<db>` | PostgreSQL connection string (**required** — without it the app silently falls back to a local dev database and fails) |
+| `CLIENT_URL` | `https://meals.<yourdomain>` | Public URL of the app (Socket.IO allowed origin) |
+| `UPLOAD_DIR` | `/home/<cpaneluser>/meals/uploads` | Absolute path for recipe images (must be writable) |
+| `HOUSEHOLD_GEMINI_KEY_ENCRYPTION_SECRET` | `<64-character-hex-string>` | Key for encrypting the Gemini API key saved from Settings. **Required as soon as you save a key in the UI**, otherwise saving fails with `Missing HOUSEHOLD_GEMINI_KEY_ENCRYPTION_SECRET`. Never change it afterwards, or the stored key becomes unreadable. |
+| `GEMINI_API_KEY` | `<your-key>` (optional) | Global fallback Gemini key, used when no key is saved in Settings (`GOOGLE_API_KEY` is also accepted) |
 
-> Generate 64-char hex strings with:
+> Generate the 64-char hex secret with:
 > ```bash
 > node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 > ```
 
+> **Notes**
+> - `NODE_ENV` does not need to be set: `server.js` forces `production`. In production the session cookie is `Secure`, so the site **must** be served over HTTPS (Step 2), otherwise login will appear to succeed but the session is never kept.
+> - `PORT` does not need to be set: Passenger injects its own listener. Only set it if you know why.
+> - `HOUSEHOLD_PASSWORD` is **not** a permanent variable: add it only for the one-off `seed:prod` run of Step 6, then delete it. If it is missing when the seed runs, the password silently defaults to `password123`.
+> - There is no `.env` file in production: variables come from the cPanel Node.js app screen. Restart the application after any change.
+
 4. Click **Save** and **Restart Application**.
+
+---
+
+### Step 6 — Run Migrations and Create the Household (cPanel interface)
+
+The Node.js application screen of cPanel can run the `package.json` scripts, using the environment variables of the app (including `DATABASE_URL`) — no phpPgAdmin needed.
+
+1. Open **Configurer une application Node.js** and click the **Edit** (pencil) icon of your application.
+2. If the **Run NPM Install** button is shown, do **not** click it: `node_modules/` is already included in the artifact.
+3. Click **Run JS script** and choose `migrate:prod`. It applies the migrations compiled in `server/dist/migrations/` (`001` to `004`) and prints the list of applied migrations. It records them in a `pgmigrations` table, so running it again only applies new ones: **run it after every deployment** that adds a migration.
+4. Add **temporarily** the environment variable `HOUSEHOLD_PASSWORD` with the password you want to use to log in, **Save**, then run the script `seed:prod`. It creates the household with a bcrypt hash of that password (it does nothing if a household already exists).
+5. **Delete** the `HOUSEHOLD_PASSWORD` variable and **Save** again, so the password is not kept in clear text in the cPanel configuration. Restart the application.
+
+> If `Run JS script` does not list `migrate:prod` / `seed:prod`, the `package.json` of the artifact is outdated: re-download the latest artifacts (Step 3).
+>
+> If you prefer, the seed can be replaced by an `INSERT` in **phpPgAdmin** with a bcrypt hash generated locally:
+> ```sql
+> INSERT INTO "Household" ("id", "passwordHash", "recipeExtractionModel", "createdAt", "updatedAt")
+> VALUES ('cm' || lower(substr(md5(random()::text), 1, 23)), '<YOUR_BCRYPT_HASH>', 'GEMINI_FREE', NOW(), NOW());
+> ```
+> ```bash
+> node -e "require('bcryptjs').hash('YOUR_STRONG_PASSWORD', 12).then(console.log)"
+> ```
 
 ---
 
@@ -254,11 +267,10 @@ Using cPanel **File Manager** or FTP:
 | Variable | Required | Description |
 |---|---|---|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `PORT` | Optional | Port for Fastify server (default: `3001`) |
-| `NODE_ENV` | Optional | `development` or `production` |
-| `CLIENT_URL` | Yes (prod) | Allowed frontend origin for CORS & Socket.IO |
-| `UPLOAD_DIR` | Optional | Directory where uploaded recipe images are stored |
-| `SESSION_SECRET` | Yes | 64-char hex secret for signing session cookies |
-| `HOUSEHOLD_GEMINI_KEY_ENCRYPTION_SECRET` | Yes | 64-char hex secret for encrypting household Gemini keys |
-| `HOUSEHOLD_PASSWORD` | Seed only | Password used when executing `pnpm db:seed` |
-| `GEMINI_API_KEY` | Optional | Fallback global Google Gemini API key (can also be entered in Settings UI) |
+| `PORT` | Optional | Port for Fastify server (default: `3001`; ignored under Passenger) |
+| `NODE_ENV` | Optional | `development` or `production` (forced to `production` by `server.js`) |
+| `CLIENT_URL` | Yes (prod) | Public frontend origin, used for Socket.IO CORS (default: `http://localhost:5173`) |
+| `UPLOAD_DIR` | Yes (prod) | Directory where uploaded recipe images are stored (default: `./uploads` relative to the working directory) |
+| `HOUSEHOLD_GEMINI_KEY_ENCRYPTION_SECRET` | Yes (to save a Gemini key) | 64-char hex secret for encrypting household Gemini keys |
+| `HOUSEHOLD_PASSWORD` | Seed only | Password used when executing `pnpm db:seed` (default: `password123`) |
+| `GEMINI_API_KEY` | Optional | Fallback global Google Gemini API key (can also be entered in Settings UI). `GOOGLE_API_KEY` is accepted as an alias |

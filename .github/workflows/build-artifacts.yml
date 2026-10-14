@@ -37,25 +37,29 @@ jobs:
 
       - name: Package Server Production Artifact
         run: |
-          mkdir -p dist-server
-          cp -r server/dist dist-server/
-          cp -r server/migrations dist-server/
-          cp server/package.json dist-server/
-          cp server/server.js dist-server/
-          
+          # Layout matches the target folder on o2switch: <app>/server/...
+          mkdir -p package/server
+          cp -r server/dist package/server/
+          cp server/package.json package/server/
+          cp server/server.js package/server/
+
           # Install production dependencies inside server package
-          cd dist-server
+          # (includes node-pg-migrate, used by `migrate:prod`)
+          cd package/server
           npm install --omit=dev
-          cd ..
-          
-          # Archive server artifact
-          zip -qr server-artifact.zip dist-server
+          cd ../..
+
+          # Archive server artifact (contains a top-level `server/` folder)
+          cd package
+          zip -qr ../server-artifact.zip server
 
       - name: Package Client Static Artifact
         run: |
-          mkdir -p dist-client
-          cp -r client/dist/* dist-client/
-          zip -qr client-artifact.zip dist-client
+          # Layout matches the target folder on o2switch: <app>/client/dist/...
+          mkdir -p package-client/client/dist
+          cp -r client/dist/* package-client/client/dist/
+          cd package-client
+          zip -qr ../client-artifact.zip client
 
       - name: Upload Server Artifact
         uses: actions/upload-artifact@v4
