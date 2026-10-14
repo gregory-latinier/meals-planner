@@ -200,6 +200,7 @@ export interface Messages {
       importUrlRequired: string
       importUrlInvalid: string
       importUrlFailed: string
+      shareNoUrl: string
       saveFailed: string
       publishFailed: string
       imageUploadFailed: string

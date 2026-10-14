@@ -9,6 +9,7 @@ import RecipeEditorPage from './pages/RecipeEditorPage'
 import CookbooksPage from './pages/CookbooksPage'
 import SettingsPage from './pages/SettingsPage'
 import MealPlanPage from './pages/MealPlanPage'
+import ShareTargetPage from './pages/ShareTargetPage'
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/cookbooks" element={<CookbooksPage />} />
         <Route path="/stores" element={<Navigate to="/settings?tab=stores" replace />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/share-target" element={<ShareTargetPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/recipes" replace />} />
     </Routes>

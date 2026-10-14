@@ -22,6 +22,12 @@ export default defineConfig({
         theme_color: '#2e7d32',
         background_color: '#ffffff',
         display: 'standalone',
+        // Lists the installed app in Android's share sheet. GET keeps it simple: no service worker handler needed.
+        share_target: {
+          action: '/share-target',
+          method: 'GET',
+          params: { title: 'title', text: 'text', url: 'url' },
+        },
         icons: [
           {
             src: 'pwa-192x192.png',
