@@ -30,7 +30,11 @@ if (!fs.existsSync(UPLOAD_DIR)) {
 
 export function buildServer() {
   const app = fastify({
-    logger: process.env.NODE_ENV !== 'production',
+    // In production, log errors (incl. every 500 with its stack) to stderr so Passenger captures them.
+    logger:
+      process.env.NODE_ENV !== 'production'
+        ? true
+        : { level: process.env.LOG_LEVEL || 'error', stream: process.stderr },
   })
 
   // CORS
