@@ -356,6 +356,13 @@ async function fetchHtml(sourceUrl: string, fetchImpl: typeof fetch): Promise<st
       throw new Error('Could not fetch source page.')
     }
 
+    if (response.status === 401 || response.status === 403 || response.status === 429) {
+      // Typically Cloudflare-style bot protection rejecting the server's IP: nothing the app can change.
+      throw new Error(
+        `The site blocks automated access (HTTP ${response.status}). Paste the recipe text instead.`
+      )
+    }
+
     if (!response.ok) {
       throw new Error(`Could not fetch source page (HTTP ${response.status}).`)
     }
@@ -462,8 +469,10 @@ export async function callGeminiJson<T>(
   model: string,
   prompt: string,
   fetchImpl: typeof fetch,
-  householdGeminiApiKeyEncrypted: string | null
+  householdGeminiApiKeyEncrypted: string | null,
+  options?: { urlContext?: boolean }
 ): Promise<T> {
+  const urlContext = options?.urlContext === true
   const apiKey = getGeminiApiKey(householdGeminiApiKeyEncrypted)
   const endpoint = buildGeminiGenerateContentEndpoint(model)
 
@@ -482,8 +491,10 @@ export async function callGeminiJson<T>(
             parts: [{ text: prompt }],
           },
         ],
+        // URL context lets Google's servers read the page; Gemini rejects a JSON mime type when a tool is enabled.
+        ...(urlContext ? { tools: [{ url_context: {} }] } : {}),
         generationConfig: {
-          responseMimeType: 'application/json',
+          ...(urlContext ? {} : { responseMimeType: 'application/json' }),
           temperature: 0.2,
         },
       }),
@@ -501,7 +512,17 @@ export async function callGeminiJson<T>(
       content?: {
         parts?: Array<{ text?: string }>
       }
+      urlContextMetadata?: { urlMetadata?: Array<{ urlRetrievalStatus?: string }> }
     }>
+  }
+
+  if (urlContext) {
+    const statuses = (body.candidates ?? []).flatMap(
+      (candidate) => candidate.urlContextMetadata?.urlMetadata?.map((m) => m.urlRetrievalStatus) ?? []
+    )
+    if (!statuses.some((status) => status === 'URL_RETRIEVAL_STATUS_SUCCESS')) {
+      throw new Error('The AI could not read the page either.')
+    }
   }
 
   const candidateTexts = (body.candidates ?? [])
@@ -638,6 +659,51 @@ function buildExtractionPrompt(sourceUrl: string, context: ExtractedContext): st
     `mainTextSnippet: ${context.mainTextSnippet}`,
     `imageCandidates: ${JSON.stringify(context.imageCandidates)}`,
   ].join('\n')
+}
+
+/** Prompt for the fallback where Gemini reads the page itself (URL context tool) instead of us. */
+function buildUrlContextPrompt(sourceUrl: string): string {
+  return [
+    `Read the recipe web page at ${sourceUrl} and extract its recipe.`,
+    'Return ONLY strict JSON matching this exact shape:',
+    '{"title":string,"servings":number|null,"prepMinutes":number|null,"cookMinutes":number|null,"instructions":[{"kind":"heading"|"item","text":string}],"ingredientRows":[{"kind":"heading"|"item","heading"?:string,"name"?:string,"quantity"?:string,"unit"?:string,"note"?:string}],"selectedImageUrl":null}',
+    'Rules:',
+    '- Use only information from that page. Never invent ingredients or steps.',
+    '- Keep the language of the page.',
+    '- title required, concise, no markdown.',
+    '- instructions and ingredientRows should preserve recipe structure and order.',
+    '- ingredientRows item rows must include name.',
+    '- servings/prepMinutes/cookMinutes should be integers or null.',
+  ].join('\n')
+}
+
+/** Used when the server cannot download the page (bot protection, network block): Gemini fetches it from Google's side. */
+async function importContextViaGeminiUrlContext(
+  sourceUrl: string,
+  model: string,
+  fetchImpl: typeof fetch,
+  householdGeminiApiKeyEncrypted: string | null
+): Promise<{ context: ExtractedContext; raw: unknown }> {
+  const raw = await callGeminiJson<unknown>(
+    model,
+    buildUrlContextPrompt(sourceUrl),
+    fetchImpl,
+    householdGeminiApiKeyEncrypted,
+    { urlContext: true }
+  )
+
+  const data = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
+  const hasContent =
+    (Array.isArray(data.ingredientRows) && data.ingredientRows.length > 0) ||
+    (Array.isArray(data.instructions) && data.instructions.length > 0)
+  if (!hasContent) {
+    throw new Error('The AI found no recipe on that page.')
+  }
+
+  return {
+    raw,
+    context: { pageTitle: null, metaDescription: null, jsonLdRecipe: null, mainTextSnippet: '', imageCandidates: [] },
+  }
 }
 
 function normalizeAiImageSelection(
@@ -878,21 +944,42 @@ export async function importRecipeFromWebUrl(
 ): Promise<ImportRecipeFromWebUrlResult> {
   const fetchImpl = deps?.fetchImpl ?? fetch
   const safeSourceUrl = await assertSafeRemoteHttpUrl(input.sourceUrl)
-  const html = await fetchHtml(safeSourceUrl, fetchImpl)
-  const context = extractContextFromHtml(html, safeSourceUrl)
-  if (isInstagramUrl(safeSourceUrl) && !context.metaDescription) {
-    // Login wall or private/removed post: nothing usable for the AI, fail with a clear reason instead of a junk recipe.
-    throw new Error('Instagram did not provide the post content (private post or access blocked).')
-  }
-  const model =mapRecipeExtractionModelToGeminiModel(input.model)
+  const model = mapRecipeExtractionModelToGeminiModel(input.model)
 
-  const extractionPrompt = buildExtractionPrompt(safeSourceUrl, context)
-  const aiRaw = await callGeminiJson<unknown>(
-    model,
-    extractionPrompt,
-    fetchImpl,
-    input.householdGeminiApiKeyEncrypted
-  )
+  let context: ExtractedContext
+  let aiRaw: unknown
+
+  try {
+    const html = await fetchHtml(safeSourceUrl, fetchImpl)
+    context = extractContextFromHtml(html, safeSourceUrl)
+    if (isInstagramUrl(safeSourceUrl) && !context.metaDescription) {
+      // Login wall or private/removed post: nothing usable for the AI, fail with a clear reason instead of a junk recipe.
+      throw new Error('Instagram did not provide the post content (private post or access blocked).')
+    }
+    aiRaw = await callGeminiJson<unknown>(
+      model,
+      buildExtractionPrompt(safeSourceUrl, context),
+      fetchImpl,
+      input.householdGeminiApiKeyEncrypted
+    )
+  } catch (downloadErr: unknown) {
+    // The server could not read the page (bot protection, network block): let Gemini read it from Google's side.
+    if (downloadErr instanceof Error && downloadErr.message === MISSING_GEMINI_API_KEY_ERROR) {
+      throw downloadErr
+    }
+    try {
+      ;({ context, raw: aiRaw } = await importContextViaGeminiUrlContext(
+        safeSourceUrl,
+        model,
+        fetchImpl,
+        input.householdGeminiApiKeyEncrypted
+      ))
+    } catch {
+      // The first error is the more useful one for the user.
+      throw downloadErr
+    }
+  }
+
   const sanitized = sanitizeAiRecipeExtraction(aiRaw, context, safeSourceUrl)
   const enriched = await enrichFromJsonLdFallback(sanitized, context)
 
