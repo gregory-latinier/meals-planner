@@ -146,7 +146,7 @@ export function buildServer() {
   return { app, io }
 }
 
-async function start() {
+export async function start() {
   const { app } = buildServer()
   try {
     await app.listen({ port: PORT, host: '0.0.0.0' })
