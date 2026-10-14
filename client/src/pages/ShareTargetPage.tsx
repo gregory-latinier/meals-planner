@@ -1,9 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material'
+import { Alert, Box, Button, CircularProgress, Stack, TextField, Typography } from '@mui/material'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useT } from '@/i18n/I18nContext'
 
 const URL_PATTERN = /https?:\/\/\S+/iu
+const URL_PATTERN_GLOBAL = /https?:\/\/\S+/giu
+// Below this amount of text (once links are removed) the share is just a link, not a recipe.
+const MIN_RECIPE_TEXT_LENGTH = 80
 
 /** Instagram (and others) put the link in `url`, or inside the free-form `text` / `title`. */
 function findSharedUrl(params: URLSearchParams): string | null {
@@ -14,74 +17,106 @@ function findSharedUrl(params: URLSearchParams): string | null {
   return null
 }
 
-/** Landing page of the Web Share Target: imports the shared link as a new recipe draft. */
+/** Text shared on its own (e.g. extracted from a screenshot), with links removed. */
+function findSharedRecipeText(params: URLSearchParams): string | null {
+  const text = (params.get('text') ?? '').replace(URL_PATTERN_GLOBAL, ' ').trim()
+  return text.length >= MIN_RECIPE_TEXT_LENGTH ? (params.get('text') ?? '').trim() : null
+}
+
+/** Landing page of the Web Share Target: imports the shared text or link as a new recipe draft. */
 export default function ShareTargetPage() {
   const { t } = useT()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [pastedText, setPastedText] = useState('')
   const startedRef = useRef(false)
 
   const sharedUrl = findSharedUrl(searchParams)
+  const sharedText = findSharedRecipeText(searchParams)
 
   const runImport = useCallback(
-    async (sourceUrl: string) => {
+    async (kind: 'url' | 'text', value: string) => {
       setError('')
+      setLoading(true)
       try {
-        const res = await fetch('/api/recipes/import/web-url', {
+        const res = await fetch(kind === 'url' ? '/api/recipes/import/web-url' : '/api/recipes/import/text', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sourceUrl }),
+          body: JSON.stringify(kind === 'url' ? { sourceUrl: value } : { importText: value }),
         })
         const data = await res.json().catch(() => null)
 
         if (!res.ok || !data?.recipe?.id) {
-          const base =
-            data?.error === 'Invalid URL.' ? t.recipes.errors.importUrlInvalid : t.recipes.errors.importUrlFailed
+          const base = kind === 'url' ? t.recipes.errors.importUrlFailed : t.recipes.errors.importTextFailed
           // Append the server's reason (missing API key, Instagram blocked, ...) to make the failure diagnosable.
-          const reason = typeof data?.error === 'string' && data.error !== 'Invalid URL.' ? data.error : ''
+          const reason =
+            typeof data?.error === 'string' && !data.error.startsWith('Invalid') ? data.error : ''
           setError(reason ? `${base} (${reason})` : base)
+          setLoading(false)
           return
         }
 
         navigate(`/recipes/${data.recipe.id}/edit`, { replace: true })
       } catch {
-        setError(t.recipes.errors.importUrlFailed)
+        setError(kind === 'url' ? t.recipes.errors.importUrlFailed : t.recipes.errors.importTextFailed)
+        setLoading(false)
       }
     },
-    [navigate, t.recipes.errors.importUrlFailed, t.recipes.errors.importUrlInvalid]
+    [navigate, t.recipes.errors.importTextFailed, t.recipes.errors.importUrlFailed]
   )
 
   useEffect(() => {
     // Guard against React StrictMode running effects twice (would create two drafts).
-    if (startedRef.current || !sharedUrl) return
+    if (startedRef.current) return
     startedRef.current = true
-    void runImport(sharedUrl)
-  }, [sharedUrl, runImport])
 
-  const failure = !sharedUrl ? t.recipes.errors.shareNoUrl : error
+    // Real recipe text wins over a link: it never depends on the site (Instagram blocks the server).
+    if (sharedText) {
+      void runImport('text', sharedText)
+    } else if (sharedUrl) {
+      void runImport('url', sharedUrl)
+    } else {
+      setLoading(false)
+      setError(t.recipes.errors.shareNoUrl)
+    }
+  }, [sharedText, sharedUrl, runImport, t.recipes.errors.shareNoUrl])
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3 }}>
-      <Stack spacing={2} sx={{ alignItems: 'center', maxWidth: 420, width: '100%' }}>
-        {failure ? (
+      <Stack spacing={2} sx={{ alignItems: 'center', maxWidth: 480, width: '100%' }}>
+        {loading ? (
           <>
-            <Alert severity="error" sx={{ width: '100%' }}>
-              {failure}
-            </Alert>
-            <Stack direction="row" spacing={1}>
-              {sharedUrl && (
-                <Button variant="contained" onClick={() => void runImport(sharedUrl)}>
-                  {t.recipes.instagramImport.importAction}
-                </Button>
-              )}
-              <Button onClick={() => navigate('/recipes', { replace: true })}>{t.recipes.backToRecipes}</Button>
-            </Stack>
+            <CircularProgress />
+            <Typography color="text.secondary">{t.recipes.importTextLoading}</Typography>
           </>
         ) : (
           <>
-            <CircularProgress />
-            <Typography color="text.secondary">{t.recipes.importUrlLoading}</Typography>
+            <Alert severity="error" sx={{ width: '100%' }}>
+              {error}
+            </Alert>
+            {/* Fallback: paste the recipe text yourself */}
+            <TextField
+              label={t.recipes.importTextFieldLabel}
+              placeholder={t.recipes.importTextFieldPlaceholder}
+              value={pastedText}
+              onChange={(event) => setPastedText(event.target.value)}
+              multiline
+              minRows={5}
+              maxRows={12}
+              fullWidth
+            />
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant="contained"
+                disabled={!pastedText.trim()}
+                onClick={() => void runImport('text', pastedText.trim())}
+              >
+                {t.recipes.importTextAction}
+              </Button>
+              <Button onClick={() => navigate('/recipes', { replace: true })}>{t.recipes.backToRecipes}</Button>
+            </Stack>
           </>
         )}
       </Stack>

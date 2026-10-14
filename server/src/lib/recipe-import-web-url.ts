@@ -18,7 +18,7 @@ import { resolveGeminiApiKey } from './household-gemini-api-key'
 export type RecipeExtractionModel = 'GEMINI_FREE'
 
 const MAX_HTML_BYTES = 2 * 1024 * 1024
-const HTML_FETCH_TIMEOUT_MS = 10_000
+const HTML_FETCH_TIMEOUT_MS = 20_000
 const MAX_REDIRECTS = 5
 
 interface ParsedJsonLdRecipe {
@@ -357,6 +357,13 @@ async function fetchHtml(sourceUrl: string, fetchImpl: typeof fetch): Promise<st
     }
 
     return Buffer.from(arrayBuffer).toString('utf8')
+  } catch (err: unknown) {
+    if (controller.signal.aborted) {
+      throw new Error(
+        `Source page did not answer within ${HTML_FETCH_TIMEOUT_MS / 1000}s (the site may be blocking the server).`
+      )
+    }
+    throw err
   } finally {
     clearTimeout(timeout)
   }

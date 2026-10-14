@@ -202,7 +202,7 @@ const fr: Messages = {
       importUrlRequired: 'L’URL de recette est requise.',
       importUrlInvalid: 'Veuillez saisir une URL valide.',
       importUrlFailed: 'Impossible d’importer la recette depuis l’URL. Veuillez réessayer.',
-      shareNoUrl: 'Aucun lien trouvé dans le contenu partagé.',
+      shareNoUrl: 'Aucune recette trouvée dans le contenu partagé. Collez le texte de la recette ci-dessous.',
       saveFailed: 'Impossible d’enregistrer la recette. Veuillez réessayer.',
       publishFailed: 'Impossible de publier la recette. Veuillez réessayer.',
       imageUploadFailed: 'Impossible de téléverser l’image. Veuillez réessayer.',

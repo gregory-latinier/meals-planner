@@ -202,7 +202,7 @@ const en: Messages = {
       importUrlRequired: 'Recipe URL is required.',
       importUrlInvalid: 'Please enter a valid URL.',
       importUrlFailed: 'Could not import recipe from URL. Please try again.',
-      shareNoUrl: 'No link found in the shared content.',
+      shareNoUrl: 'No recipe found in the shared content. Paste the recipe text below.',
       saveFailed: 'Could not save recipe. Please try again.',
       publishFailed: 'Could not publish recipe. Please try again.',
       imageUploadFailed: 'Could not upload image. Please try again.',
