@@ -9,6 +9,10 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      workbox: {
+        // Never answer server routes with the SPA shell (default navigateFallback serves index.html for any navigation)
+        navigateFallbackDenylist: [/^\/api/, /^\/uploads/, /^\/socket\.io/],
+      },
       manifest: {
         name: 'Meals Planner',
         short_name: 'Meals',
