@@ -274,6 +274,28 @@ function pickMainJsonLdRecipe(recipes: ParsedJsonLdRecipe[]): ParsedJsonLdRecipe
   return withIngredients ?? recipes[0]
 }
 
+const INSTAGRAM_HOSTS = new Set(['instagram.com', 'www.instagram.com', 'm.instagram.com'])
+const BROWSER_USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'
+// Instagram serves a login wall to browsers/unknown clients, but returns the caption in og: meta tags to link-preview bots.
+const LINK_PREVIEW_USER_AGENT = 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
+
+function isInstagramUrl(url: string): boolean {
+  try {
+    return INSTAGRAM_HOSTS.has(new URL(url).hostname.toLowerCase())
+  } catch {
+    return false
+  }
+}
+
+function buildHtmlRequestHeaders(url: string): Record<string, string> {
+  return {
+    Accept: 'text/html,application/xhtml+xml',
+    'Accept-Language': 'fr,en;q=0.8',
+    'User-Agent': isInstagramUrl(url) ? LINK_PREVIEW_USER_AGENT : BROWSER_USER_AGENT,
+  }
+}
+
 async function fetchHtml(sourceUrl: string, fetchImpl: typeof fetch): Promise<string> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), HTML_FETCH_TIMEOUT_MS)
@@ -285,9 +307,7 @@ async function fetchHtml(sourceUrl: string, fetchImpl: typeof fetch): Promise<st
     for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
       response = await fetchImpl(currentUrl, {
         method: 'GET',
-        headers: {
-          Accept: 'text/html,application/xhtml+xml',
-        },
+        headers: buildHtmlRequestHeaders(currentUrl),
         redirect: 'manual',
         signal: controller.signal,
       })
@@ -315,7 +335,7 @@ async function fetchHtml(sourceUrl: string, fetchImpl: typeof fetch): Promise<st
     }
 
     if (!response.ok) {
-      throw new Error('Could not fetch source page.')
+      throw new Error(`Could not fetch source page (HTTP ${response.status}).`)
     }
 
     const contentType = response.headers.get('content-type')
@@ -823,7 +843,11 @@ export async function importRecipeFromWebUrl(
   const safeSourceUrl = await assertSafeRemoteHttpUrl(input.sourceUrl)
   const html = await fetchHtml(safeSourceUrl, fetchImpl)
   const context = extractContextFromHtml(html, safeSourceUrl)
-  const model = mapRecipeExtractionModelToGeminiModel(input.model)
+  if (isInstagramUrl(safeSourceUrl) && !context.metaDescription) {
+    // Login wall or private/removed post: nothing usable for the AI, fail with a clear reason instead of a junk recipe.
+    throw new Error('Instagram did not provide the post content (private post or access blocked).')
+  }
+  const model =mapRecipeExtractionModelToGeminiModel(input.model)
 
   const extractionPrompt = buildExtractionPrompt(safeSourceUrl, context)
   const aiRaw = await callGeminiJson<unknown>(

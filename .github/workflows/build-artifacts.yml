@@ -49,28 +49,26 @@ jobs:
           npm install --omit=dev
           cd ../..
 
-          # Archive server artifact (contains a top-level `server/` folder)
-          cd package
-          zip -qr ../server-artifact.zip server
-
       - name: Package Client Static Artifact
         run: |
           # Layout matches the target folder on o2switch: <app>/client/dist/...
           mkdir -p package-client/client/dist
           cp -r client/dist/* package-client/client/dist/
-          cd package-client
-          zip -qr ../client-artifact.zip client
 
+      # upload-artifact already zips what it uploads: give it the folders,
+      # not a pre-built zip (that would produce a zip inside a zip).
+      # The downloaded server-artifact.zip / client-artifact.zip contain a top-level `server/` / `client/` folder.
       - name: Upload Server Artifact
         uses: actions/upload-artifact@v4
         with:
           name: server-artifact
-          path: server-artifact.zip
+          path: package
+          include-hidden-files: true # node_modules/.bin, .package-lock.json…
           retention-days: 7
 
       - name: Upload Client Artifact
         uses: actions/upload-artifact@v4
         with:
           name: client-artifact
-          path: client-artifact.zip
+          path: package-client
           retention-days: 7

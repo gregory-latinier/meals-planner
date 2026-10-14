@@ -36,9 +36,11 @@ export default function ShareTargetPage() {
         const data = await res.json().catch(() => null)
 
         if (!res.ok || !data?.recipe?.id) {
-          setError(
+          const base =
             data?.error === 'Invalid URL.' ? t.recipes.errors.importUrlInvalid : t.recipes.errors.importUrlFailed
-          )
+          // Append the server's reason (missing API key, Instagram blocked, ...) to make the failure diagnosable.
+          const reason = typeof data?.error === 'string' && data.error !== 'Invalid URL.' ? data.error : ''
+          setError(reason ? `${base} (${reason})` : base)
           return
         }
 
