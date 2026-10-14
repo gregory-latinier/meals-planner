@@ -1,49 +1,65 @@
 # Meals Planner
 
-Household meal planning and grocery list app — built as a PWA for self-hosting on a NAS (QNAP or similar).
+Household meal planning and grocery list app — built as an installable PWA designed for shared hosting (o2switch / Phusion Passenger) or local deployment.
 
 ## Stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | Next.js 16 (App Router) + TypeScript + MUI v9 |
-| Realtime | Socket.IO (dedicated Express service) |
-| Database | PostgreSQL 16 via Prisma ORM |
-| Auth | Single shared household password, bcryptjs, server-side session cookie |
-| PWA | `manifest.json` + `next-pwa` |
-| Package manager | pnpm 10 (workspace) |
-| Containers | Docker for dev DB only; full Docker Compose for prod |
+| Frontend | React 19 + TypeScript + Vite + MUI v9 + React Router + `vite-plugin-pwa` |
+| Backend & Realtime | Fastify 5 + Socket.IO + TypeScript (`server/`) |
+| Database | PostgreSQL 16 via native `pg` client (no Prisma / no WebAssembly / no heavy engines) |
+| Migrations | `node-pg-migrate` |
+| Auth | Single shared household password, `bcryptjs`, signed HTTP-only session cookies |
+| Package manager | pnpm 10 (workspace: `client`, `server`) |
+| Containers | Docker for local development PostgreSQL only |
 
 ## Project Structure
 
 ```
 meals-planner/
-├── web/                    # Next.js app (port 3100)
+├── client/                 # Vite SPA / PWA (dev port 5173)
 │   ├── src/
-│   │   ├── app/            # App Router pages & API routes
+│   │   ├── components/     # AppTopBar, MobileBottomNav, ProtectedLayout, etc.
 │   │   ├── hooks/          # useRealtime client hook
-│   │   ├── lib/            # prisma, session, auth utilities
+│   │   ├── pages/          # Dashboard, Recipes, Cookbooks, Stores, Settings, Login
 │   │   ├── theme/          # MUI theme tokens
-│   │   └── middleware.ts   # Auth guard
-│   └── prisma/             # Schema + seed script
-├── realtime/               # Socket.IO service (port 3001)
+│   │   └── i18n/           # Multi-language translations (FR / EN)
+│   ├── vite.config.ts      # Vite config, dev proxy & PWA manifest setup
+│   └── tsconfig.json
+├── server/                 # Fastify API & Socket.IO server (port 3001)
+│   ├── src/
+│   │   ├── db/             # pg connection pool & seed script
+│   │   ├── routes/         # auth, recipes, cookbooks, stores, taxonomy, images, settings
+│   │   ├── lib/            # AI gemini extraction, safety checks, auth & image processing
+│   │   └── index.ts        # Fastify + Socket.IO combined server
+│   ├── migrations/         # node-pg-migrate schema migrations
+│   ├── server.js           # Phusion Passenger cPanel production startup wrapper
+│   └── tsconfig.json
+├── .github/workflows/      # Automated build & packaging workflow
+├── docker-compose.yml      # Local dev PostgreSQL service
 ├── pnpm-workspace.yaml
-├── docker-compose.yml      # Dev: PostgreSQL only
-├── docker-compose.prod.yml # Prod: full stack
 └── .env.example
 ```
 
-## Quickstart (Development)
+---
+
+## Quickstart (Local Development)
 
 ### Prerequisites
-- Docker (for PostgreSQL)
 - Node.js 20+ with pnpm 10 (`npm i -g pnpm@10` or `corepack enable`)
+- Docker (for PostgreSQL database)
 
 ### 1. Configure environment
 
 ```bash
 cp .env.example .env
 # Edit .env — set SESSION_SECRET and HOUSEHOLD_PASSWORD at minimum
+```
+
+Also copy or link `.env` into `server/.env` if running backend standalone:
+```bash
+cp .env server/.env
 ```
 
 ### 2. Install dependencies
@@ -59,238 +75,63 @@ pnpm dev:db
 # or: docker compose up -d
 ```
 
-### 4. Run migrations + seed
+### 4. Run database migrations & seed
 
 ```bash
-pnpm db:migrate        # apply Prisma migrations
-pnpm db:seed           # create the household with HOUSEHOLD_PASSWORD
+pnpm db:migrate        # applies PostgreSQL migrations via node-pg-migrate
+pnpm db:seed           # creates the initial household with HOUSEHOLD_PASSWORD
 ```
 
-### 5. Start the app
+### 5. Start development servers
 
 ```bash
-pnpm dev               # starts web (3100) + realtime (3001) in parallel
+pnpm dev               # starts server (3001) and client (5173) concurrently
 ```
 
-Or individually:
+Or run them individually:
 
 ```bash
-pnpm dev:web           # Next.js only
-pnpm dev:realtime      # Socket.IO only
+pnpm dev:server        # Fastify + Socket.IO on http://localhost:3001
+pnpm dev:client        # Vite SPA on http://localhost:5173
 ```
 
-### 6. Open
+### 6. Access the application
 
-- Web: http://localhost:3100
-- Realtime health: http://localhost:3001/health
-- Prisma Studio: `pnpm db:studio`
+- Web UI: **http://localhost:5173** (proxies `/api`, `/uploads`, and `/socket.io` to port 3001)
+- Server Health Check: **http://localhost:3001/api/health**
+- Log in with the password configured in `HOUSEHOLD_PASSWORD` (default: `password123` if unset).
 
-Log in with the password you set in `HOUSEHOLD_PASSWORD`.
+---
 
 ## Workspace Scripts
 
 | Script | Description |
 |---|---|
-| `pnpm dev` | Start web + realtime in parallel |
-| `pnpm dev:web` | Start Next.js dev server only |
-| `pnpm dev:realtime` | Start Socket.IO dev server only |
-| `pnpm dev:db` | Start PostgreSQL container |
-| `pnpm dev:db:down` | Stop PostgreSQL container |
-| `pnpm dev:db:logs` | Tail PostgreSQL logs |
-| `pnpm build` | Build all packages |
-| `pnpm test` | Run all tests |
-| `pnpm db:migrate` | Run Prisma migrations |
-| `pnpm db:seed` | Seed the household password |
-| `pnpm db:studio` | Open Prisma Studio |
-
-## Running Tests
-
-```bash
-pnpm test                    # all packages
-pnpm --filter web test       # web only
-pnpm --filter realtime test  # realtime only
-```
-
-## CI — Automated image builds (GHCR)
-
-Every push to `main` (and version tags `v*`) triggers a GitHub Actions workflow that:
-
-1. Builds `web/Dockerfile.prod` → `ghcr.io/gregory-latinier/meals-web`
-2. Builds `realtime/Dockerfile.prod` → `ghcr.io/gregory-latinier/meals-realtime`
-3. Pushes the following tags:
-   - `latest` (on `main` only)
-   - `sha-<shortsha>` (every build)
-   - `vX.Y.Z` / `vX.Y` (on git tags)
-
-No secrets to configure — the workflow uses the built-in `GITHUB_TOKEN`.
-
-After the first push to `main`, make both packages **public** in GitHub:
-- Go to your profile → **Packages** → select the package → **Package settings** → **Change visibility → Public**
+| `pnpm dev` | Start backend server and Vite frontend in parallel |
+| `pnpm dev:server` | Start Fastify server with hot-reload (`tsx watch`) |
+| `pnpm dev:client` | Start Vite dev server |
+| `pnpm dev:db` | Start PostgreSQL Docker container |
+| `pnpm dev:db:down` | Stop PostgreSQL Docker container |
+| `pnpm dev:db:logs` | Tail PostgreSQL container logs |
+| `pnpm build` | Compile backend (`tsc`) and bundle frontend (`vite build`) |
+| `pnpm db:migrate` | Run SQL migrations (`node-pg-migrate up`) |
+| `pnpm db:seed` | Seed initial household account |
+| `pnpm test` | Run test suite |
 
 ---
 
-## Deploy to QNAP (Container Station — UI only)
+## Deployment on o2switch (Phusion Passenger)
 
-No SSH or command line needed on the NAS. Everything runs from the Container Station UI.
+### Why this architecture for o2switch?
 
-### Prerequisites
+o2switch runs CloudLinux with restrictive LVE process limits (`Max resident set` and `Max address space` memory caps). Under these restrictions:
+- Prisma engines and WebAssembly instantiations fail with out-of-memory or allocation errors.
+- Running heavy compile/build commands directly on the server crashes or triggers resource throttling.
 
-- QNAP NAS with **Container Station** installed
-- Both GHCR images are public (see CI section above)
-- A domain or local hostname pointing to your NAS IP
-- Optional: QNAP built-in reverse proxy + Let's Encrypt
-
----
-
-### Step 1 — Copy compose + env file to NAS
-
-Copy two files to your NAS (e.g. via SMB share to `/share/Container/meals-planner/`):
-
-- `docker-compose.prod.yml`
-- `.env.prod` (created from `.env.example`, filled with your values)
-
-Minimum `.env.prod` content:
-
-```env
-POSTGRES_PASSWORD=REPLACE_WITH_STRONG_PASSWORD
-DATABASE_URL=postgresql://mpuser:REPLACE_WITH_STRONG_PASSWORD@db:5432/mealsplanner
-SESSION_SECRET=REPLACE_WITH_64_CHAR_HEX_SECRET
-HOUSEHOLD_PASSWORD=REPLACE_WITH_LOGIN_PASSWORD
-NEXT_PUBLIC_APP_URL=https://meals.example.com
-NEXT_PUBLIC_REALTIME_URL=https://meals.example.com
-CLIENT_URL=https://meals.example.com
-NODE_ENV=production
-NEXT_TELEMETRY_DISABLED=1
-```
-
-Generate a session secret:
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-
----
-
-### Step 2 — Create application in Container Station
-
-1. Open **Container Station** → **Applications** → **Create**.
-2. Set a name (e.g. `meals-planner`).
-3. Paste the contents of `docker-compose.prod.yml`.
-4. Upload or paste `.env.prod` in the env file field.
-5. Click **Create**.
-
-Container Station will:
-- Pull `postgres:16-alpine`, `meals-web`, and `meals-realtime` from their registries
-- Run the `init` service (migrate DB + seed household password)
-- Start `web` on port `8080` and `realtime` on port `3001`
-
----
-
-### Step 3 — Configure QNAP reverse proxy (recommended)
-
-Open **Control Panel → Application Portal → Reverse Proxy**.
-
-#### Rule 1 — Web app
-
-| Field | Value |
-|---|---|
-| Protocol | HTTPS |
-| Hostname | `meals.example.com` |
-| Port | `443` |
-| Destination protocol | HTTP |
-| Destination host | `localhost` |
-| Destination port | `8080` |
-
-#### Rule 2 — Socket.IO (realtime)
-
-| Field | Value |
-|---|---|
-| Protocol | HTTPS |
-| Hostname | `meals.example.com` |
-| Port | `443` |
-| Path | `/socket.io` |
-| Destination protocol | HTTP |
-| Destination host | `localhost` |
-| Destination port | `3001` |
-| Enable WebSocket | **Yes** |
-
----
-
-### Step 4 — Verify
-
-- Open `https://meals.example.com` → login page
-- Log in with `HOUSEHOLD_PASSWORD`
-- Check health: `http://<NAS-IP>:8080/api/health` and `http://<NAS-IP>:3001/health`
-
----
-
-### Updating to a new version
-
-1. Push code changes to `main` on GitHub.
-2. Wait for GitHub Actions to build and push new images (~2-3 min).
-3. In Container Station → your application → **Recreate** (pulls latest images and restarts).
-
-The `init` service re-runs on each recreate — it skips seed if the household already exists.
-
----
-
-### Rollback
-
-Pin a previous image tag in `.env.prod`:
-
-```env
-WEB_IMAGE=ghcr.io/gregory-latinier/meals-web:sha-abc1234
-REALTIME_IMAGE=ghcr.io/gregory-latinier/meals-realtime:sha-abc1234
-```
-
-Then recreate the application in Container Station.
-
----
-
-### Backup and restore
-
-**Backup database** (from Container Station terminal or SSH):
-
-```bash
-docker exec meals-planner-db-1 pg_dump -U mpuser mealsplanner > backup_$(date +%F).sql
-```
-
-**Restore:**
-
-```bash
-cat backup.sql | docker exec -i meals-planner-db-1 psql -U mpuser mealsplanner
-```
-
----
-
-### Troubleshooting
-
-| Symptom | Check |
-|---|---|
-| App unreachable | Router port forwarding (443 → NAS), DNS A record |
-| Realtime disconnects | `/socket.io` reverse proxy rule + WebSocket enabled |
-| `init` service fails | Check logs in Container Station — likely missing env var |
-| Login fails | `SESSION_SECRET` must be stable across restarts |
-| Migration errors | `DATABASE_URL` must use `db` as hostname (not `localhost`) |
-
----
-
-## Deploy to o2switch (cPanel — Pre-built Artifacts via GitHub Actions)
-
-Deploy Meals Planner to **o2switch** using cPanel's native PostgreSQL, the **Setup Node.js App** interface (Phusion Passenger), and pre-built standalone production artifacts generated by **GitHub Actions**.
-
-### Why GitHub Actions for o2switch?
-
-o2switch runs CloudLinux with LVE process limits (`Max resident set` and `Max address space` caps). Under these restrictions:
-- Node.js 20+ internal HTTP/fetch (`undici`) and Prisma CLI fail with `RangeError: WebAssembly.instantiate(): Out of memory: Cannot allocate Wasm memory for new instance`.
-- Next.js production builds (`next build`) require significant RAM that can exceed shared hosting limits.
-
-To guarantee 100% reliability, **GitHub Actions** builds, compiles, and packages standalone production bundles containing the pre-compiled Linux Prisma engines and all production dependencies. On o2switch, you simply extract the zip files into your application folders and restart Phusion Passenger—**no build or npm install is executed on the server**.
-
-### Architecture Overview
-
-- **Web Application (`meals.<yourdomain>`)**: Next.js standalone app served by Phusion Passenger via `server.js`.
-- **Realtime Service (`realtime.<yourdomain>`)**: Socket.IO daemon served by Phusion Passenger via `server.js`.
-- **Database**: Local PostgreSQL instance hosted natively in cPanel on `localhost:5432`.
+To guarantee complete stability:
+- **No Prisma**: Native `pg` client communicates directly with PostgreSQL using lightweight connection pooling.
+- **Unified Fastify + Socket.IO service**: A single Node.js Passenger application serves API endpoints, WebSocket connections, uploads, and static client assets.
+- **Pre-built artifacts via GitHub Actions**: Packaging runs in CI, producing pre-compiled artifacts ready to extract directly on cPanel with zero building on the server.
 
 ---
 
@@ -307,20 +148,13 @@ To guarantee 100% reliability, **GitHub Actions** builds, compiles, and packages
 
 ---
 
-### Step 2 — Run Database Migrations & Seed via phpPgAdmin
+### Step 2 — Run Database Migrations in phpPgAdmin
 
-Because Prisma CLI cannot run inside the restricted CloudLinux environment, database tables and the initial household account are set up directly via **phpPgAdmin** in cPanel.
-
-#### 1. Apply Migrations (Tables & Schema)
+Because migrations can be executed once via SQL directly:
 1. In cPanel, open **phpPgAdmin** and select your database (e.g., `<cpaneluser>_meals`).
 2. Click the **SQL** tab.
-3. Open the migration files in this repository under `web/prisma/migrations/`:
-   - `20260320140000_init/migration.sql`
-   - `20260321175659_add_household_encryption_key/migration.sql`
-4. Copy and execute each file's SQL content in phpPgAdmin.
-
-#### 2. Seed Initial Household Account
-In phpPgAdmin's **SQL** tab, run the following query to create your household account. Replace `<YOUR_BCRYPT_HASH>` with a bcrypt hash of your chosen household password:
+3. Open `server/migrations/001_initial_schema.ts` (or apply your migration script) or run the SQL table creation statements.
+4. Insert your initial household account with a bcrypt password hash:
 
 ```sql
 INSERT INTO "Household" (
@@ -339,194 +173,92 @@ INSERT INTO "Household" (
 ```
 
 > **How to generate your bcrypt hash locally**:
-> Run in your local terminal:
 > ```bash
-> node -e "require('bcryptjs').hash('YOUR_PASSWORD', 12).then(console.log)"
+> node -e "require('bcryptjs').hash('YOUR_STRONG_PASSWORD', 12).then(console.log)"
 > ```
-> Then paste the resulting string (e.g. `$2a$12$...`) into `<YOUR_BCRYPT_HASH>`.
 
 ---
 
-### Step 3 — Subdomains and SSL
+### Step 3 — Create Subdomain and Enable SSL
 
-1. In cPanel, navigate to **Domaines** or **Sous-domaines**:
-   - Create `meals.<yourdomain>` (Document root: `/home/<cpaneluser>/repas/public`).
-   - Create `realtime.<yourdomain>` (Document root: `/home/<cpaneluser>/meals-realtime/public`).
-2. Go to **SSL/TLS Status** in cPanel:
-   - Select both subdomains and click **Run AutoSSL** to issue free Let's Encrypt certificates.
+1. In cPanel, go to **Domaines** or **Sous-domaines**:
+   - Create your subdomain, e.g. `meals.<yourdomain>`.
+   - Set the document root to `/home/<cpaneluser>/meals/public` (or similar).
+2. In cPanel **SSL/TLS Status**, select the subdomain and click **Run AutoSSL** to issue a free Let's Encrypt certificate.
 
 ---
 
 ### Step 4 — Download Artifacts from GitHub Actions
 
-Every push to `main` (or manual trigger under **Actions** → **Build & Package Deployment Artifacts**) builds the standalone packages.
-
-1. Go to your GitHub repository and click the **Actions** tab.
+Every push to `main` (or manual trigger under **Actions** → **Build & Package Deployment Artifacts**) builds the production bundle:
+1. Go to your repository on GitHub and open the **Actions** tab.
 2. Select the latest run of **Build & Package Deployment Artifacts**.
-3. Under **Artifacts** at the bottom of the page, download:
-   - `web-production.zip`
-   - `realtime-production.zip`
+3. Under **Artifacts**, download `server-artifact.zip` and `client-artifact.zip`.
 
 ---
 
-### Step 5 — Deploy Artifacts on o2switch
+### Step 5 — Upload and Deploy Artifacts on o2switch
 
-Using cPanel **File Manager** (or an FTP client like FileZilla):
+Using cPanel **File Manager** or FTP:
 
-1. **Deploy Web Application**:
-   - Navigate to `/home/<cpaneluser>/repas/` (or your chosen web root).
-   - If previous test files exist, delete them (keep `.env` if created).
-   - Upload `web-production.zip` and extract it directly into `/home/<cpaneluser>/repas/`.
-   - Verify that `server.js`, `package.json`, `.next/`, `node_modules/`, and `public/` are present in the folder.
-2. **Deploy Realtime Service**:
-   - Navigate to `/home/<cpaneluser>/meals-realtime/`.
-   - Upload `realtime-production.zip` and extract it directly into `/home/<cpaneluser>/meals-realtime/`.
-   - Verify that `server.js`, `dist/`, and `node_modules/` are present.
+1. Create or open your application folder: `/home/<cpaneluser>/meals/`.
+2. Upload `server-artifact.zip` and extract its contents into `/home/<cpaneluser>/meals/`.
+   - Ensure `server.js`, `package.json`, `dist/`, and `node_modules/` reside in the app folder.
+3. Upload `client-artifact.zip` and extract its contents into `/home/<cpaneluser>/meals/client/dist/` (or serve directly as static files if configuring Apache/Nginx rewrite rules).
+4. Create an `uploads` directory at `/home/<cpaneluser>/meals/uploads` with write permissions.
 
 ---
 
-### Step 6 — Configure Node.js Applications in cPanel
+### Step 6 — Configure Node.js Application in cPanel
 
 1. In cPanel, open **Configurer une application Node.js** (Setup Node.js App).
-
-#### Web Application Configuration
 2. Click **Create Application**:
    - **Node.js version**: `20.x`
    - **Application mode**: `Production`
-   - **Application root**: `repas` (or `meals-web`)
+   - **Application root**: `meals`
    - **Application URL**: `meals.<yourdomain>`
    - **Application startup file**: `server.js`
 3. Add the following **Environment Variables**:
 
 | Variable | Value | Description |
 |---|---|---|
-| `DATABASE_URL` | `postgresql://<user>:<password>@localhost:5432/<db>` | Internal PostgreSQL connection string |
-| `SESSION_SECRET` | `<64-character-hex-string>` | Random hex key for session cookies |
-| `HOUSEHOLD_GEMINI_KEY_ENCRYPTION_SECRET` | `<64-character-hex-string>` | Random hex key for Gemini API key encryption |
-| `HOUSEHOLD_PASSWORD` | `<your-household-password>` | Initial login password for the household |
-| `NEXT_PUBLIC_APP_URL` | `https://meals.<yourdomain>` | Public web URL |
-| `NEXT_PUBLIC_REALTIME_URL` | `https://realtime.<yourdomain>` | Public Socket.IO realtime URL |
-| `CLIENT_URL` | `https://meals.<yourdomain>` | Allowed client URL |
-| `NODE_ENV` | `production` | Production environment |
+| `DATABASE_URL` | `postgresql://<user>:<password>@localhost:5432/<db>` | PostgreSQL connection string |
+| `PORT` | `3001` (or Passenger port) | Internal application port |
+| `NODE_ENV` | `production` | Production environment flag |
+| `SESSION_SECRET` | `<64-character-hex-string>` | Key for signing session cookies |
+| `HOUSEHOLD_GEMINI_KEY_ENCRYPTION_SECRET` | `<64-character-hex-string>` | Key for encrypting Gemini API keys |
+| `CLIENT_URL` | `https://meals.<yourdomain>` | Allowed CORS origin |
+| `UPLOAD_DIR` | `/home/<cpaneluser>/meals/uploads` | Absolute path for recipe images |
 
-> Generate 64-char hex strings using Node: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+> Generate 64-char hex strings with:
+> ```bash
+> node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+> ```
 
-4. Click **Create** (or **Save**).
-5. Click **Restart Application**. *(Do not run NPM Install or build scripts on the server)*.
-
-#### Realtime Service Configuration
-6. Click **Create Application** again:
-   - **Node.js version**: `20.x`
-   - **Application mode**: `Production`
-   - **Application root**: `meals-realtime`
-   - **Application URL**: `realtime.<yourdomain>`
-   - **Application startup file**: `server.js`
-7. Add **Environment Variables**:
-
-| Variable | Value | Description |
-|---|---|---|
-| `CLIENT_URL` | `https://meals.<yourdomain>` | Allowed CORS origin (`https://meals.<yourdomain>`) |
-| `NODE_ENV` | `production` | Production environment |
-
-8. Click **Create** (or **Save**).
-9. Click **Restart Application**.
+4. Click **Save** and **Restart Application**.
 
 ---
 
 ### Step 7 — Verify Deployment
 
-1. **Check Realtime Service**:
-   Visit `https://realtime.<yourdomain>/health` in your browser. It should return:
-   ```json
-   {"status":"ok","connections":0}
-   ```
-2. **Access Web App**:
-   Visit `https://meals.<yourdomain>`.
-   - Log in using your configured password.
-   - The realtime indicator in the navigation bar should show green/connected.
+1. Check health endpoint:
+   `https://meals.<yourdomain>/api/health` → returns `{"status":"ok", ...}`
+2. Open `https://meals.<yourdomain>` in your web browser.
+3. Log in with your household password.
+4. Verify that the top bar shows **Live** (green) confirming the Socket.IO connection is active.
 
 ---
 
-### Future Updates on o2switch
-
-When you make changes to the codebase and push to `main`:
-1. Wait for GitHub Actions to complete the build (~2 minutes).
-2. Download the updated `web-production.zip` (and `realtime-production.zip` if realtime changed).
-3. In cPanel File Manager, upload and extract the zip into the corresponding folder (overwrite existing files).
-4. In **Setup Node.js App**, click **Restart Application**. That's all!
-
----
-
-## Feature Development Workflow
-
-Feature requests are handled **automatically** — no manual agent handoff needed.
-
-### How a feature request works
-
-When you describe a feature (e.g. "add grocery list", "build a settings page", "implement recipe search"), the default agent `feature` detects the intent and runs this chain **without pausing between phases**:
-
-```
-Your prompt
-  └─▶ [1] planner          — produces plan, acceptance criteria, tech design
-        └─▶ [2] implementer  — writes code, runs migration, writes tests
-              └─▶ [3] reviewer — reviews correctness, types, i18n, security, test coverage
-                    └─▶ [4] validator — runs lint / tsc / test / build; fixes and retries
-                          └─▶ [5] release-gatekeeper — STOPS HERE
-                                    presents manual testing checklist
-                                    waits for your explicit approval
-```
-
-**Nothing is committed or pushed until you reply with an approval command.**
-
-### Approval commands
-
-| Command | Effect |
-|---|---|
-| `APPROVED:COMMIT` | Runs final gate suite, stages, and commits |
-| `APPROVED:PUBLISH` | Runs final gate suite, commits, and pushes to `main` |
-
-### Non-feature requests
-
-Questions, debugging help, explanations, and quick fixes are handled directly by `feature` without starting the chain.
-
----
-
-### Agent map
-
-| Agent | Mode | Role |
-|---|---|---|
-| `feature` | **default primary** | Orchestrator — detects feature intent and drives the chain |
-| `planner` | chain step 1 | Produces plan + acceptance criteria |
-| `implementer` | chain step 2 | Writes all code, migration, tests |
-| `reviewer` | chain step 3 | Reviews types, i18n, security, test coverage |
-| `validator` | chain step 4 | Runs lint / tsc / test / build |
-| `release-gatekeeper` | chain step 5 | Presents manual test report, gates on approval, commits/pushes |
-| `architect` | optional specialist | Greenfield project bootstrap — invoke with `/new-project` |
-| `tradeoff-critic` | optional specialist | Pressure-tests a plan before coding — invoke with `@tradeoff-critic` |
-| `blocker-scout` | optional specialist | Identifies blockers before coding — invoke with `@blocker-scout` |
-| `mockup-analyst` | optional specialist | Converts UI mockups into requirements — invoke with `@mockup-analyst` |
-| `test-engineer` | optional specialist | Deeper test coverage — invoke with `@test-engineer` |
-| ~~`feature-planner`~~ | deprecated | Replaced by `planner` — do not use |
-
-Specialist agents are hidden from the normal agent picker. They can still be invoked explicitly by name when needed.
-
----
-
-## Auth & Password Reset
-
-No email required — household-only auth. To reset the password:
-
-1. `POST /api/auth/forgot-password` — returns a reset token (in JSON in dev; server logs in prod).
-2. `POST /api/auth/reset-password` with `{ token, newPassword }` — updates the password and invalidates all sessions.
-
-## Environment Variables
-
-See `.env.example` for full documentation.
+## Environment Variables Reference
 
 | Variable | Required | Description |
 |---|---|---|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `SESSION_SECRET` | Yes | 64-char hex secret for session signing |
-| `HOUSEHOLD_PASSWORD` | Seed only | Initial household password |
-| `NEXT_PUBLIC_REALTIME_URL` | Yes | Public URL of the Socket.IO service |
-| `CLIENT_URL` | Yes (realtime) | Origin allowed by Socket.IO CORS |
+| `PORT` | Optional | Port for Fastify server (default: `3001`) |
+| `NODE_ENV` | Optional | `development` or `production` |
+| `CLIENT_URL` | Yes (prod) | Allowed frontend origin for CORS & Socket.IO |
+| `UPLOAD_DIR` | Optional | Directory where uploaded recipe images are stored |
+| `SESSION_SECRET` | Yes | 64-char hex secret for signing session cookies |
+| `HOUSEHOLD_GEMINI_KEY_ENCRYPTION_SECRET` | Yes | 64-char hex secret for encrypting household Gemini keys |
+| `HOUSEHOLD_PASSWORD` | Seed only | Password used when executing `pnpm db:seed` |
+| `GEMINI_API_KEY` | Optional | Fallback global Google Gemini API key (can also be entered in Settings UI) |

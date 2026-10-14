@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build Web & Realtime Artifacts
+    name: Build Client & Server Artifacts
     runs-on: ubuntu-latest
 
     steps:
@@ -27,76 +27,46 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
-      - name: Generate Prisma Client
-        run: pnpm --filter web db:generate
+      - name: Build Server
+        run: pnpm --filter server build
 
-      - name: Build Web Application
-        run: pnpm --filter web build
+      - name: Build Client SPA PWA
+        run: pnpm --filter client build
 
-      - name: Build Realtime Service
-        run: pnpm --filter realtime build
-
-      - name: Package Web Production Artifact
+      - name: Package Server Production Artifact
         run: |
-          mkdir -p dist-web
-
-          # Copy standalone output including hidden dotfiles/folders like .next
-          if [ -d "web/.next/standalone/web" ]; then
-            cp -rL web/.next/standalone/web/. dist-web/
-            cp -rL web/.next/standalone/node_modules dist-web/
-          else
-            cp -rL web/.next/standalone/. dist-web/
-          fi
-
-          # Ensure .prisma client files (including compiled engines) are dereferenced into node_modules/.prisma
-          if [ -d "web/.next/standalone/node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/.prisma" ]; then
-            mkdir -p dist-web/node_modules/.prisma
-            cp -rL web/.next/standalone/node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/.prisma/* dist-web/node_modules/.prisma/
-          fi
-
-          # Copy Phusion Passenger server.js wrapper
-          cp web/server.js dist-web/server.js
-
-          # Copy static assets required by Next.js standalone into .next/static
-          mkdir -p dist-web/.next
-          cp -r web/.next/static dist-web/.next/static
-
-          # Copy public directory
-          cp -r web/public dist-web/public
-
-          # Copy prisma directory
-          cp -r web/prisma dist-web/prisma
-
-          # Ensure hidden files like .next are included when uploaded by creating a zip archive
-          cd dist-web
-          zip -r -q ../web-production.zip .
+          mkdir -p dist-server
+          cp -r server/dist dist-server/
+          cp -r server/migrations dist-server/
+          cp server/package.json dist-server/
+          cp server/server.js dist-server/
+          
+          # Install production dependencies inside server package
+          cd dist-server
+          npm install --omit=dev
           cd ..
+          
+          # Archive server artifact
+          zip -qr server-artifact.zip dist-server
 
-      - name: Package Realtime Production Artifact
+      - name: Package Client Static Artifact
         run: |
-          mkdir -p dist-realtime
-          cp -r realtime/dist dist-realtime/dist
-          cp realtime/server.js dist-realtime/server.js
-          cp realtime/package.json dist-realtime/package.json
+          mkdir -p dist-client
+          cp -r client/dist/* dist-client/
+          zip -qr client-artifact.zip dist-client
 
-          # Install production-only dependencies
-          cd dist-realtime
-          npm install --omit=dev --no-audit --no-fund
-          zip -r -q ../realtime-production.zip .
-          cd ..
-
-      - name: Upload Web Production Artifact
+      - name: Upload Server Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: web-production
-          path: web-production.zip
-          retention-days: 30
+          name: server-artifact
+          path: server-artifact.zip
+          retention-days: 7
 
-      - name: Upload Realtime Production Artifact
+      - name: Upload Client Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: realtime-production
-          path: realtime-production.zip
-          retention-days: 30
+          name: client-artifact
+          path: client-artifact.zip
+          retention-days: 7

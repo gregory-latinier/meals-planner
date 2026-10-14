@@ -4,30 +4,18 @@
   "private": true,
   "packageManager": "pnpm@10.10.0",
   "scripts": {
-    "dev": "concurrently -n web,realtime -c green,blue \"pnpm dev:web\" \"pnpm dev:realtime\"",
-    "dev:web": "pnpm --filter web dev",
-    "dev:realtime": "pnpm --filter realtime dev",
+    "dev": "concurrently -n server,client -c green,blue \"pnpm dev:server\" \"pnpm dev:client\"",
+    "dev:server": "pnpm --filter server dev",
+    "dev:client": "pnpm --filter client dev",
     "dev:db": "docker compose up -d",
     "dev:db:down": "docker compose down",
     "dev:db:logs": "docker compose logs -f db",
-    "build": "pnpm --filter web build && pnpm --filter realtime build",
-    "test": "pnpm --filter web test && pnpm --filter realtime test",
-    "lint": "pnpm --filter web lint",
-    "db:migrate": "pnpm --filter web db:migrate",
-    "db:deploy": "pnpm --filter web db:deploy",
-    "db:seed": "pnpm --filter web db:seed",
-    "db:studio": "pnpm --filter web db:studio"
+    "build": "pnpm --filter server build && pnpm --filter client build",
+    "test": "pnpm --filter server test",
+    "db:migrate": "pnpm --filter server migrate:up",
+    "db:seed": "pnpm --filter server seed"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@parcel/watcher",
-      "@prisma/client",
-      "@prisma/engines",
-      "prisma",
-      "unrs-resolver"
-    ]
   }
 }

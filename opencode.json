@@ -1,0 +1,21 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "feature",
+  "permission": {
+    "bash": {
+      "*": "allow",
+
+      "rm *": "deny",
+      "rm -rf *": "deny",
+      "del *": "deny",
+      "erase *": "deny",
+      "rmdir *": "deny",
+      "rd *": "deny",
+      "Remove-Item *": "deny",
+
+      "git clean *": "deny",
+      "git reset --hard*": "deny",
+      "git checkout -- *": "deny"
+    }
+  }
+}

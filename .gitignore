@@ -10,23 +10,14 @@ node_modules/
 .env.prod
 # .env.example is intentionally committed
 
-# ── Next.js ───────────────────────────────────────────────────────────────────
-web/.next/
-web/out/
-web/build/
-web/next-env.d.ts
-web/.vercel
-
-# ── TypeScript ────────────────────────────────────────────────────────────────
-*.tsbuildinfo
-
-# ── Test / coverage ───────────────────────────────────────────────────────────
-coverage/
-.nyc_output/
-
 # ── Build output ──────────────────────────────────────────────────────────────
 dist/
 build/
+client/dist/
+server/dist/
+dist-client/
+dist-server/
+*.zip
 
 # ── Logs ──────────────────────────────────────────────────────────────────────
 *.log
@@ -49,16 +40,8 @@ desktop.ini
 *.sln
 *.sw?
 
-# ── Docker ────────────────────────────────────────────────────────────────────
-Dockerfile.web.dev
-
-# ── Misc ──────────────────────────────────────────────────────────────────────
-*.pem
-*.crt
-.opencode/
-opencode.json
-docs-internal
-
 # ── Runtime uploads ───────────────────────────────────────────────────────────
-web/public/uploads/recipes/*
-!web/public/uploads/recipes/.gitkeep
+uploads/
+server/uploads/*
+!server/uploads/.gitkeep
+zscaler-ca.crt
