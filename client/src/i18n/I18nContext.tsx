@@ -2,7 +2,6 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import type { Locale, Messages } from './types'
 import {
   getMessages,
-  detectLocale,
   readStoredLocale,
   writeStoredLocale,
   DEFAULT_LOCALE,
@@ -24,7 +23,8 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE)
 
   useEffect(() => {
-    const nextLocale = readStoredLocale() ?? detectLocale()
+    // The browser language is deliberately ignored: French by default, unless the user picked another one in Settings.
+    const nextLocale = readStoredLocale() ?? DEFAULT_LOCALE
 
     if (nextLocale !== DEFAULT_LOCALE) {
       // Defer update to avoid hydration mismatch and satisfy hook lint rules.

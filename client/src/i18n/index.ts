@@ -10,16 +10,6 @@ export function getMessages(locale: Locale): Messages {
   return messages[locale]
 }
 
-/**
- * Detects the preferred locale from the browser's navigator.language.
- * Falls back to DEFAULT_LOCALE if the browser locale is not supported.
- */
-export function detectLocale(): Locale {
-  if (typeof navigator === 'undefined') return DEFAULT_LOCALE
-  const lang = navigator.language.slice(0, 2).toLowerCase() as Locale
-  return SUPPORTED_LOCALES.includes(lang) ? lang : DEFAULT_LOCALE
-}
-
 const STORAGE_KEY = 'mp_locale'
 
 /** Reads the persisted locale from localStorage. */

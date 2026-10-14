@@ -363,7 +363,7 @@ export default function SettingsPage() {
       }
 
       const res = await fetch('/api/settings/ai', {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
