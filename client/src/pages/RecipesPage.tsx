@@ -36,7 +36,7 @@ import LinkIcon from '@mui/icons-material/Link'
 import EditNoteIcon from '@mui/icons-material/EditNote'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import MobileBottomNav from '@/components/MobileBottomNav'
 import AppTopBar from '@/components/AppTopBar'
 import { useT } from '@/i18n/I18nContext'
@@ -152,6 +152,10 @@ function RecipeImage({ src, title, fallbackLabel, width, height }: RecipeImagePr
 export default function RecipesPage() {
   const navigate = useNavigate()
   const { t } = useT()
+  const [searchParams, setSearchParams] = useSearchParams()
+  // The URL is the source of truth, so clicking a cookbook (or sharing the link) preloads the filter.
+  const cookbookFilter = searchParams.get('cookbookId') ?? ''
+  const [cookbookOptions, setCookbookOptions] = useState<{ id: string; name: string }[]>([])
   const [isMounted, setIsMounted] = useState(false)
   const [sortBy, setSortBy] = useState<SortField>(DEFAULT_SORT_BY)
   const [order, setOrder] = useState<SortOrder>(DEFAULT_ORDER)
@@ -221,6 +225,46 @@ export default function RecipesPage() {
     window.localStorage.setItem(VIEW_STORAGE_KEY, viewMode)
   }, [viewMode, isMounted])
 
+  function changeCookbookFilter(next: string) {
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev)
+        if (next) params.set('cookbookId', next)
+        else params.delete('cookbookId')
+        return params
+      },
+      { replace: true }
+    )
+  }
+
+  useEffect(() => {
+    let active = true
+    async function loadCookbooks() {
+      try {
+        const res = await fetch('/api/cookbooks?sortBy=name&order=asc')
+        const data = await res.json()
+        if (!res.ok || !active) return
+        const options = ((data.cookbooks ?? []) as { id: string; name: string }[]).map((cb) => ({
+          id: cb.id,
+          name: cb.name,
+        }))
+        setCookbookOptions(options)
+        // A stale link to a deleted cookbook would otherwise filter everything out silently.
+        const requested = new URLSearchParams(window.location.search).get('cookbookId')
+        if (requested && !options.some((cb) => cb.id === requested)) {
+          changeCookbookFilter('')
+        }
+      } catch {
+        // The filter is optional: the list still works without it.
+      }
+    }
+    void loadCookbooks()
+    return () => {
+      active = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchQuery.trim())
@@ -240,6 +284,9 @@ export default function RecipesPage() {
         const params = new URLSearchParams({ sortBy, order })
         if (debouncedSearch) {
           params.set('search', debouncedSearch)
+        }
+        if (cookbookFilter) {
+          params.set('cookbookId', cookbookFilter)
         }
         const res = await fetch(`/api/recipes?${params.toString()}`)
         const data = await res.json()
@@ -263,7 +310,7 @@ export default function RecipesPage() {
     return () => {
       active = false
     }
-  }, [sortBy, order, debouncedSearch, t.recipes.errors.loadFailed, isMounted])
+  }, [sortBy, order, debouncedSearch, cookbookFilter, t.recipes.errors.loadFailed, isMounted])
 
   async function startDraft() {
     setChooserOpen(false)
@@ -421,6 +468,25 @@ export default function RecipesPage() {
             </ToggleButtonGroup>
           </Box>
 
+          {cookbookOptions.length > 0 && (
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <InputLabel id="recipes-cookbook-filter-label">{t.recipes.cookbookLabel}</InputLabel>
+              <Select
+                labelId="recipes-cookbook-filter-label"
+                label={t.recipes.cookbookLabel}
+                value={cookbookOptions.some((cb) => cb.id === cookbookFilter) ? cookbookFilter : ''}
+                onChange={(event) => changeCookbookFilter(event.target.value)}
+              >
+                <MenuItem value="">{t.recipes.allCookbooksOption}</MenuItem>
+                {cookbookOptions.map((cb) => (
+                  <MenuItem key={cb.id} value={cb.id}>
+                    {cb.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+
           <FormControl size="small" sx={{ minWidth: 200 }}>
             <InputLabel id="recipes-sort-by-label">{t.recipes.sortLabel}</InputLabel>
             <Select
@@ -465,10 +531,10 @@ export default function RecipesPage() {
           <Card elevation={0}>
             <CardContent sx={{ p: 4, textAlign: 'center' }}>
               <Typography variant="h6" sx={{ mb: 1 }}>
-                {debouncedSearch ? t.recipes.noSearchResultsTitle : t.recipes.noRecipesTitle}
+                {debouncedSearch || cookbookFilter ? t.recipes.noSearchResultsTitle : t.recipes.noRecipesTitle}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {debouncedSearch ? t.recipes.noSearchResultsSubtitle : t.recipes.noRecipesSubtitle}
+                {debouncedSearch || cookbookFilter ? t.recipes.noSearchResultsSubtitle : t.recipes.noRecipesSubtitle}
               </Typography>
             </CardContent>
           </Card>

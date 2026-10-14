@@ -145,6 +145,7 @@ const en: Messages = {
     titleLabel: 'Title',
     cookbookLabel: 'Cookbook',
     noCookbookOption: 'No cookbook',
+    allCookbooksOption: 'All cookbooks',
     servingsLabel: 'Servings',
     increaseServingsAriaLabel: 'Increase servings',
     decreaseServingsAriaLabel: 'Decrease servings',

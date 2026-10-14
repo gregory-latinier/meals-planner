@@ -665,6 +665,9 @@ function buildExtractionPrompt(sourceUrl: string, context: ExtractedContext): st
 function buildUrlContextPrompt(sourceUrl: string): string {
   return [
     `Read the recipe web page at ${sourceUrl} and extract its recipe.`,
+    ...(isInstagramUrl(sourceUrl)
+      ? ['This is an Instagram post or reel: the recipe is usually written in its caption (and possibly in the comments).']
+      : []),
     'Return ONLY strict JSON matching this exact shape:',
     '{"title":string,"servings":number|null,"prepMinutes":number|null,"cookMinutes":number|null,"instructions":[{"kind":"heading"|"item","text":string}],"ingredientRows":[{"kind":"heading"|"item","heading"?:string,"name"?:string,"quantity"?:string,"unit"?:string,"note"?:string}],"selectedImageUrl":null}',
     'Rules:',
@@ -989,7 +992,7 @@ export async function importRecipeFromWebUrl(
   )
 
   const { image, warning } = await pickBestImageWithFallback(orderedCandidates)
-    const recipeId = await persistImportedRecipe(input, enriched, image)
+  const recipeId = await persistImportedRecipe(input, enriched, image)
 
   return {
     recipeId,

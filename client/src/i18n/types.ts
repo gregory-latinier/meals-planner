@@ -143,6 +143,7 @@ export interface Messages {
     titleLabel: string
     cookbookLabel: string
     noCookbookOption: string
+    allCookbooksOption: string
     servingsLabel: string
     increaseServingsAriaLabel: string
     decreaseServingsAriaLabel: string

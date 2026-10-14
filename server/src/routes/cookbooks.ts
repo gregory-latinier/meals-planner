@@ -53,7 +53,8 @@ export const cookbookRoutes: FastifyPluginAsync = async (fastify) => {
          RETURNING *`,
         [id, household.id, trimmed, nameNormalized]
       )
-      return reply.status(201).send({ cookbook: res.rows[0] })
+      // A new cookbook is empty; the list view expects the same counters as GET /.
+      return reply.status(201).send({ cookbook: { ...res.rows[0], recipeCount: 0, recipesCount: 0 } })
     } catch (err: any) {
       if (err.code === '23505') {
         return reply.status(409).send({ error: 'A cookbook with this name already exists' })

@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Card,
+  CardActionArea,
   CardContent,
   Container,
   Drawer,
@@ -106,7 +107,7 @@ const DEFAULT_VIEW: ViewMode = 'grid'
 
 /** Formats the recipe count label using the i18n template. */
 function formatRecipeCount(template: string, count: number): string {
-  return template.replace('{{count}}', String(count))
+  return template.replace('{{count}}', String(count ?? 0))
 }
 
 /** Reads persisted cookbook sorting preferences from localStorage. */
@@ -219,6 +220,10 @@ export default function CookbooksPage() {
   const recipeCountLabel = useMemo(() => t.cookbooks.recipeCount, [t.cookbooks.recipeCount])
   const imageFallbackLabel = useMemo(() => t.cookbooks.imageFallback, [t.cookbooks.imageFallback])
 
+  function openCookbookRecipes(cookbookId: string) {
+    navigate(`/recipes?cookbookId=${encodeURIComponent(cookbookId)}`)
+  }
+
   function openCreateDrawer() {
     setChooserOpen(false)
     setCreateError('')
@@ -290,7 +295,7 @@ export default function CookbooksPage() {
         return
       }
 
-      const created = data.cookbook as Cookbook
+      const created = { ...(data.cookbook as Cookbook), recipeCount: data.cookbook.recipeCount ?? 0 }
 
       setCookbooks((prev) => {
         const next = [created, ...prev]
@@ -409,6 +414,34 @@ export default function CookbooksPage() {
             {cookbooks.map((cookbook) => (
               <Grid key={cookbook.id} size={{ xs: 12, sm: 6, md: 4 }}>
                 <Card elevation={0}>
+                  <CardActionArea onClick={() => openCookbookRecipes(cookbook.id)}>
+                    <CardContent sx={{ p: 3 }}>
+                      <Box sx={{ mb: 2 }}>
+                        <CookbookImage
+                          src={cookbook.coverImagePath}
+                          title={cookbook.name}
+                          fallbackLabel={imageFallbackLabel}
+                          width="100%"
+                          height={160}
+                        />
+                      </Box>
+                      <Typography variant="h6" sx={{ mb: 1 }}>
+                        {cookbook.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {formatRecipeCount(recipeCountLabel, cookbook.recipeCount)}
+                      </Typography>
+                    </CardContent>
+                  </CardActionArea>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        ) : (
+          <Box sx={{ display: 'grid', gap: 2 }}>
+            {cookbooks.map((cookbook) => (
+              <Card key={cookbook.id} elevation={0}>
+                <CardActionArea onClick={() => openCookbookRecipes(cookbook.id)}>
                   <CardContent sx={{ p: 3 }}>
                     <Box sx={{ mb: 2 }}>
                       <CookbookImage
@@ -416,7 +449,7 @@ export default function CookbooksPage() {
                         title={cookbook.name}
                         fallbackLabel={imageFallbackLabel}
                         width="100%"
-                        height={160}
+                        height={140}
                       />
                     </Box>
                     <Typography variant="h6" sx={{ mb: 1 }}>
@@ -426,31 +459,7 @@ export default function CookbooksPage() {
                       {formatRecipeCount(recipeCountLabel, cookbook.recipeCount)}
                     </Typography>
                   </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        ) : (
-          <Box sx={{ display: 'grid', gap: 2 }}>
-            {cookbooks.map((cookbook) => (
-              <Card key={cookbook.id} elevation={0}>
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ mb: 2 }}>
-                    <CookbookImage
-                      src={cookbook.coverImagePath}
-                      title={cookbook.name}
-                      fallbackLabel={imageFallbackLabel}
-                      width="100%"
-                      height={140}
-                    />
-                  </Box>
-                  <Typography variant="h6" sx={{ mb: 1 }}>
-                    {cookbook.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {formatRecipeCount(recipeCountLabel, cookbook.recipeCount)}
-                  </Typography>
-                </CardContent>
+                </CardActionArea>
               </Card>
             ))}
           </Box>
