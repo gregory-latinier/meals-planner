@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4caf50"/>
+      <stop offset="1" stop-color="#1b5e20"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#66bb6a"/>
+      <stop offset="1" stop-color="#2e7d32"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <g>
+    <!-- plate -->
+    <circle cx="256" cy="268" r="112" fill="#000" opacity=".18"/>
+    <circle cx="256" cy="256" r="112" fill="#fff"/>
+    <circle cx="256" cy="256" r="90" fill="none" stroke="#e8f5e9" stroke-width="8"/>
+    <!-- leaf -->
+    <path d="M256 186 C316 198 336 252 256 330 C176 252 196 198 256 186 Z" fill="url(#leaf)"/>
+    <path d="M256 214 L256 306" stroke="#c8e6c9" stroke-width="6" stroke-linecap="round"/>
+    <!-- fork -->
+    <g fill="#fff">
+      <rect x="82" y="160" width="10" height="60" rx="5"/>
+      <rect x="100" y="160" width="10" height="60" rx="5"/>
+      <rect x="118" y="160" width="10" height="60" rx="5"/>
+      <rect x="82" y="190" width="46" height="48" rx="20"/>
+      <rect x="99" y="230" width="12" height="122" rx="6"/>
+    </g>
+    <!-- knife -->
+    <g fill="#fff">
+      <path d="M408 160 C440 175 442 235 436 262 L408 262 Z"/>
+      <rect x="402" y="256" width="14" height="96" rx="7"/>
+    </g>
+  </g>
+</svg>

@@ -8,12 +8,14 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.ico', 'favicon.svg', 'apple-touch-icon.png'],
       workbox: {
         // Never answer server routes with the SPA shell (default navigateFallback serves index.html for any navigation)
         navigateFallbackDenylist: [/^\/api/, /^\/uploads/, /^\/socket\.io/],
       },
       manifest: {
+        id: '/',
+        lang: 'fr',
         name: 'Meals Planner',
         short_name: 'Meals',
         description: 'Plan and manage recipes and meals',
@@ -25,11 +27,20 @@ export default defineConfig({
             src: 'pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png',
+            purpose: 'any',
           },
           {
             src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            // Full-bleed artwork for Android adaptive icons (safe zone respected)
+            src: 'pwa-maskable-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
           },
         ],
       },
