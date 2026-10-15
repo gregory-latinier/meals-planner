@@ -71,6 +71,37 @@ export async function getSessionFromRequest(request: FastifyRequest): Promise<{ 
   return { session, household }
 }
 
+/** Extracts one cookie value from a raw `Cookie` header (used for Socket.IO handshakes). */
+export function readCookieFromHeader(header: string | undefined, name: string): string | null {
+  if (!header) return null
+  for (const part of header.split(';')) {
+    const index = part.indexOf('=')
+    if (index === -1) continue
+    if (part.slice(0, index).trim() !== name) continue
+    const raw = part.slice(index + 1).trim()
+    try {
+      return decodeURIComponent(raw)
+    } catch {
+      return raw
+    }
+  }
+  return null
+}
+
+/** Resolves the household owning a valid, non-expired session token. */
+export async function getHouseholdIdForToken(token: string | null | undefined): Promise<string | null> {
+  if (!token) return null
+  const res = await query<{ householdId: string }>(
+    `SELECT "householdId" FROM "Session" WHERE token = $1 AND "expiresAt" > NOW() LIMIT 1`,
+    [token]
+  )
+  return res.rows[0]?.householdId ?? null
+}
+
+export function householdRoom(householdId: string): string {
+  return `household:${householdId}`
+}
+
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<{ session: Session; household: Household }> {
   const auth = await getSessionFromRequest(request)
   if (!auth) {

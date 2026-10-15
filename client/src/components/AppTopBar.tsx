@@ -33,6 +33,9 @@ export default function AppTopBar() {
           <Button color="inherit" onClick={() => navigate('/meal-plan')}>
             {t.nav.mealPlanTab}
           </Button>
+          <Button color="inherit" onClick={() => navigate('/shopping-list')}>
+            {t.nav.shoppingListTab}
+          </Button>
         </Box>
 
         <IconButton color="inherit" onClick={() => navigate('/settings')} sx={{ mr: 1 }}>

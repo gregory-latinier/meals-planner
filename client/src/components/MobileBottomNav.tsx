@@ -2,10 +2,11 @@ import React from 'react'
 import { BottomNavigation, BottomNavigationAction, Paper } from '@mui/material'
 import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
 import { useNavigate } from 'react-router-dom'
 import { useT } from '../i18n/I18nContext'
 
-export type MobileBottomNavValue = 'recipes' | 'meal-plan'
+export type MobileBottomNavValue = 'recipes' | 'meal-plan' | 'shopping-list'
 
 interface MobileBottomNavProps {
   value: MobileBottomNavValue | null
@@ -23,6 +24,10 @@ export default function MobileBottomNav({ value }: MobileBottomNavProps) {
     }
     if (nextValue === 'meal-plan') {
       navigate('/meal-plan')
+      return
+    }
+    if (nextValue === 'shopping-list') {
+      navigate('/shopping-list')
       return
     }
   }
@@ -49,6 +54,11 @@ export default function MobileBottomNav({ value }: MobileBottomNavProps) {
           value="meal-plan"
           label={t.nav.mealPlanTab}
           icon={<CalendarMonthIcon />}
+        />
+        <BottomNavigationAction
+          value="shopping-list"
+          label={t.nav.shoppingListTab}
+          icon={<ShoppingCartIcon />}
         />
       </BottomNavigation>
     </Paper>

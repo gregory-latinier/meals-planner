@@ -14,6 +14,7 @@ export function useRealtime(onHouseholdUpdate?: (data: { type: string; payload: 
   useEffect(() => {
     // In Vite dev and production, socket connects to window.location.origin (proxied or served together)
     const socket = io({
+      withCredentials: true,
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,
       reconnectionDelay: 2000,

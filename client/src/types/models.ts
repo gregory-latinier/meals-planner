@@ -21,3 +21,44 @@ export interface MealPlanItemWithRecipe extends MealPlanItem {
   recipeCoverImagePath?: string | null
   recipePrepMinutes?: number | null
 }
+
+export interface ShoppingListQuantityEntry {
+  amount: number | null
+  text: string | null
+  unitId: string | null
+  unitName: string | null
+}
+
+export interface ShoppingListItem {
+  id: string
+  listId: string
+  ingredientId: string | null
+  name: string
+  nameNormalized: string
+  quantities: ShoppingListQuantityEntry[]
+  quantityText: string | null
+  storeId: string | null
+  storeName: string | null
+  source: 'RECIPE' | 'MANUAL'
+  pantryCheck: boolean
+  checked: boolean
+  checkedAt: string | null
+  position: number
+}
+
+export interface ShoppingList {
+  id: string
+  status: 'ACTIVE' | 'COMPLETED'
+  createdAt: string
+  updatedAt: string
+  completedAt: string | null
+}
+
+export interface ShoppingListSummary {
+  id: string
+  status: 'ACTIVE' | 'COMPLETED'
+  createdAt: string
+  completedAt: string | null
+  itemCount: number
+  checkedCount: number
+}

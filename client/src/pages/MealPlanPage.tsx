@@ -40,6 +40,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import RemoveIcon from '@mui/icons-material/Remove'
 import RestaurantIcon from '@mui/icons-material/Restaurant'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
 import { useNavigate } from 'react-router-dom'
 
 import AppTopBar from '../components/AppTopBar'
@@ -54,6 +55,7 @@ import {
   deleteMealPlan,
 } from '../api/meal-plans'
 import { formatLocalDate, getMonday } from '../lib/date-utils'
+import { generateShoppingList } from '../api/shopping-lists'
 import { scaleQuantityText } from '../lib/recipe-quantity-scaling'
 
 export type MealPlanItemData = MealPlanItemWithRecipe
@@ -258,6 +260,7 @@ export default function MealPlanPage() {
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [snackbarMsg, setSnackbarMsg] = useState<string | null>(null)
+  const [preparingList, setPreparingList] = useState(false)
 
   // Drag-and-drop state
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null)
@@ -394,6 +397,30 @@ export default function MealPlanPage() {
   useEffect(() => {
     loadMealPlans()
   }, [loadMealPlans])
+
+  async function handlePrepareShoppingList() {
+    let startDate = weekStartDateStr
+    let endDate = formatLocalDate(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6))
+    if (viewMode === 'month') {
+      startDate = monthRange.startDateStr
+      endDate = monthRange.endDateStr
+    }
+    setPreparingList(true)
+    try {
+      const result = await generateShoppingList(startDate, endDate)
+      const message =
+        result.meals === 0
+          ? t.shoppingList.generatedNothing
+          : t.shoppingList.generated
+              .replace('{added}', String(result.added + result.merged))
+              .replace('{pantry}', String(result.pantryCheck))
+      navigate('/shopping-list', { state: { message } })
+    } catch {
+      setErrorMsg(t.shoppingList.generateFailed)
+    } finally {
+      setPreparingList(false)
+    }
+  }
 
   // Persist viewMode and currentDate
   useEffect(() => {
@@ -829,6 +856,15 @@ export default function MealPlanPage() {
                 {t.mealPlan.monthView}
               </Button>
             </ButtonGroup>
+
+            <Button
+              variant="outlined"
+              startIcon={<ShoppingCartIcon />}
+              onClick={handlePrepareShoppingList}
+              disabled={preparingList}
+            >
+              {t.mealPlan.prepareShoppingList}
+            </Button>
 
             <Button
               variant="contained"

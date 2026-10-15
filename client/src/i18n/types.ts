@@ -262,6 +262,7 @@ export interface Messages {
     nextMonth: string
     today: string
     addMeal: string
+    prepareShoppingList: string
     editMeal: string
     deleteMeal: string
     deleteConfirm: string
@@ -343,6 +344,60 @@ export interface Messages {
       saveFailed: string
     }
   }
+  shoppingList: {
+    title: string
+    subtitle: string
+    history: string
+    historyTitle: string
+    historyEmpty: string
+    historyItems: string
+    backToCurrent: string
+    addPlaceholder: string
+    quantityPlaceholder: string
+    addButton: string
+    noStore: string
+    allStores: string
+    hideChecked: string
+    showChecked: string
+    progress: string
+    empty: string
+    emptyHint: string
+    pantryTitle: string
+    pantryHint: string
+    needIt: string
+    noLongerInStock: string
+    editTitle: string
+    nameLabel: string
+    quantityLabel: string
+    storeLabel: string
+    save: string
+    delete: string
+    deleteAlwaysInStock: string
+    finish: string
+    finishTitle: string
+    finishText: string
+    carryOver: string
+    finishConfirm: string
+    finishedSnack: string
+    generated: string
+    generatedNothing: string
+    generateFailed: string
+    loadFailed: string
+    updateFailed: string
+    addFailed: string
+    deleteFailed: string
+    completeFailed: string
+    selectItems: string
+    addSelected: string
+    addedSnack: string
+    copyFailed: string
+    completedOn: string
+    noActiveList: string
+    viewCurrent: string
+    deleted: string
+    ingredientFromRecipe: string
+    manualItem: string
+  }
   nav: {
     logout: string
     settings: string
@@ -353,6 +408,7 @@ export interface Messages {
     recipesTab: string
     storesTab: string
     mealPlanTab: string
+    shoppingListTab: string
   }
 }
 

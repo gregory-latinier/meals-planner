@@ -235,7 +235,7 @@ The Node.js application screen of cPanel can run the `package.json` scripts, usi
 
 1. Open **Configurer une application Node.js** and click the **Edit** (pencil) icon of your application.
 2. If the **Run NPM Install** button is shown, do **not** click it: `node_modules/` is already included in the artifact.
-3. Click **Run JS script** and choose `migrate:prod`. It applies the migrations compiled in `server/dist/migrations/` (`001` to `004`) and prints the list of applied migrations. It records them in a `pgmigrations` table, so running it again only applies new ones: **run it after every deployment** that adds a migration.
+3. Click **Run JS script** and choose `migrate:prod`. It applies the migrations compiled in `server/dist/migrations/` (`001` to `005`) and prints the list of applied migrations. It records them in a `pgmigrations` table, so running it again only applies new ones: **run it after every deployment** that adds a migration.
 4. Add **temporarily** the environment variable `HOUSEHOLD_PASSWORD` with the password you want to use to log in, **Save**, then run the script `seed:prod`. It creates the household with a bcrypt hash of that password (it does nothing if a household already exists).
 5. **Delete** the `HOUSEHOLD_PASSWORD` variable and **Save** again, so the password is not kept in clear text in the cPanel configuration. Restart the application.
 

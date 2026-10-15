@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify'
 import { Server as SocketIOServer } from 'socket.io'
 import { query } from '../db/index'
-import { generateId, requireAuth } from '../lib/auth'
+import { generateId, householdRoom, requireAuth } from '../lib/auth'
 
 interface MealPlansRouteOptions {
   io?: SocketIOServer
@@ -19,9 +19,9 @@ export function getIsoMonday(dateStr: string): string {
 export const mealPlanRoutes: FastifyPluginAsync<MealPlansRouteOptions> = async (fastify, opts) => {
   const io = opts?.io
 
-  function broadcastRealtime(type: string, payload: unknown) {
+  function broadcastRealtime(householdId: string, type: string, payload: unknown) {
     if (io) {
-      io.emit('household:update', { type, payload })
+      io.to(householdRoom(householdId)).emit('household:update', { type, payload })
     }
   }
 
@@ -164,7 +164,7 @@ export const mealPlanRoutes: FastifyPluginAsync<MealPlansRouteOptions> = async (
       }
     }
 
-    broadcastRealtime('meal_plan:created', created)
+    broadcastRealtime(household.id, 'meal_plan:created', created)
     return reply.status(201).send({ mealPlan: created })
   })
 
@@ -254,7 +254,7 @@ export const mealPlanRoutes: FastifyPluginAsync<MealPlansRouteOptions> = async (
       }
     }
 
-    broadcastRealtime('meal_plan:updated', updated)
+    broadcastRealtime(household.id, 'meal_plan:updated', updated)
     return reply.send({ mealPlan: updated })
   })
 
@@ -272,7 +272,7 @@ export const mealPlanRoutes: FastifyPluginAsync<MealPlansRouteOptions> = async (
       return reply.status(404).send({ error: 'Meal plan item not found' })
     }
 
-    broadcastRealtime('meal_plan:deleted', { id })
+    broadcastRealtime(household.id, 'meal_plan:deleted', { id })
     return reply.send({ success: true, id })
   })
 }

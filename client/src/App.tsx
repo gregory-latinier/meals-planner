@@ -10,6 +10,8 @@ import CookbooksPage from './pages/CookbooksPage'
 import SettingsPage from './pages/SettingsPage'
 import MealPlanPage from './pages/MealPlanPage'
 import ShareTargetPage from './pages/ShareTargetPage'
+import ShoppingListPage from './pages/ShoppingListPage'
+import ShoppingListHistoryPage from './pages/ShoppingListHistoryPage'
 
 export default function App() {
   return (
@@ -22,6 +24,9 @@ export default function App() {
         <Route path="/recipes/:recipeId" element={<RecipeViewPage />} />
         <Route path="/recipes/:recipeId/edit" element={<RecipeEditorPage />} />
         <Route path="/meal-plan" element={<MealPlanPage />} />
+        <Route path="/shopping-list" element={<ShoppingListPage />} />
+        <Route path="/shopping-lists" element={<ShoppingListHistoryPage />} />
+        <Route path="/shopping-lists/:listId" element={<ShoppingListHistoryPage />} />
         <Route path="/cookbooks" element={<CookbooksPage />} />
         <Route path="/stores" element={<Navigate to="/settings?tab=stores" replace />} />
         <Route path="/settings" element={<SettingsPage />} />

@@ -17,6 +17,8 @@ import { recipeRoutes } from './routes/recipes'
 import { imageRoutes } from './routes/images'
 import { settingsRoutes } from './routes/settings'
 import { mealPlanRoutes } from './routes/meal-plans'
+import { shoppingListRoutes } from './routes/shopping-lists'
+import { SESSION_COOKIE, getHouseholdIdForToken, householdRoom, readCookieFromHeader } from './lib/auth'
 
 dotenv.config()
 
@@ -113,20 +115,42 @@ export function buildServer() {
   app.register(imageRoutes, { prefix: '/api' })
   app.register(settingsRoutes, { prefix: '/api/settings' })
   app.register(mealPlanRoutes, { prefix: '/api/meal-plans', io })
+  app.register(shoppingListRoutes, { prefix: '/api/shopping-lists', io })
 
-  let connectedClients = 0
+  // Connected clients per household (rooms isolate households from each other).
+  const connectedByHousehold = new Map<string, number>()
+
+  // Authenticate every socket with the session cookie and attach it to its household room.
+  io.use(async (socket, next) => {
+    try {
+      const token = readCookieFromHeader(socket.handshake.headers.cookie, SESSION_COOKIE)
+      const householdId = await getHouseholdIdForToken(token)
+      if (!householdId) {
+        next(new Error('Unauthorized'))
+        return
+      }
+      socket.data.householdId = householdId
+      next()
+    } catch (err) {
+      next(err instanceof Error ? err : new Error('Unauthorized'))
+    }
+  })
 
   io.on('connection', (socket) => {
-    connectedClients++
-    app.log.info(`[realtime] Client connected: ${socket.id} (total: ${connectedClients})`)
+    const householdId = socket.data.householdId as string
+    const room = householdRoom(householdId)
+    const total = (connectedByHousehold.get(householdId) ?? 0) + 1
+    connectedByHousehold.set(householdId, total)
+    socket.join(room)
+    app.log.info(`[realtime] Client connected: ${socket.id} (household total: ${total})`)
 
-    socket.broadcast.emit('household:update', {
+    socket.to(room).emit('household:update', {
       type: 'presence',
-      payload: { event: 'joined', socketId: socket.id, total: connectedClients },
+      payload: { event: 'joined', socketId: socket.id, total },
     })
 
     socket.on('household:update', (data: { type: string; payload: unknown }) => {
-      socket.broadcast.emit('household:update', data)
+      socket.to(room).emit('household:update', data)
     })
 
     socket.on('ping', () => {
@@ -134,11 +158,13 @@ export function buildServer() {
     })
 
     socket.on('disconnect', (reason) => {
-      connectedClients = Math.max(0, connectedClients - 1)
+      const remaining = Math.max(0, (connectedByHousehold.get(householdId) ?? 1) - 1)
+      if (remaining === 0) connectedByHousehold.delete(householdId)
+      else connectedByHousehold.set(householdId, remaining)
       app.log.info(`[realtime] Client disconnected: ${socket.id} — ${reason}`)
-      socket.broadcast.emit('household:update', {
+      socket.to(room).emit('household:update', {
         type: 'presence',
-        payload: { event: 'left', socketId: socket.id, total: connectedClients },
+        payload: { event: 'left', socketId: socket.id, total: remaining },
       })
     })
   })

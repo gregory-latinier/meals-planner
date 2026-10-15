@@ -69,13 +69,17 @@ export default function DashboardPage() {
           </Grid>
 
           <Grid size={{ xs: 12, md: 4 }}>
-            <Card elevation={0}>
+            <Card
+              elevation={0}
+              sx={{ cursor: 'pointer', '&:hover': { boxShadow: 2 } }}
+              onClick={() => navigate('/shopping-list')}
+            >
               <CardContent sx={{ p: 3 }}>
                 <Typography variant="h6" sx={{ mb: 1 }}>{t.dashboard.groceryList.title}</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                   {t.dashboard.groceryList.description}
                 </Typography>
-                <Chip label={t.dashboard.comingSoon} size="small" color="secondary" variant="outlined" />
+                <Chip label={t.shoppingList.title} size="small" color="primary" clickable />
               </CardContent>
             </Card>
           </Grid>
