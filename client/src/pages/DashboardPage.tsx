@@ -43,7 +43,7 @@ export default function DashboardPage() {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Container maxWidth="lg" sx={{ pt: { xs: 1, md: 2 }, pb: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
           {t.dashboard.welcome}
         </Typography>

@@ -105,9 +105,12 @@ interface RecipeImageProps {
   fallbackLabel: string
   width: number | string
   height: number | string
+  /** Fixes the box ratio (e.g. '16 / 10') so every image is cropped to the same size; `height` is then ignored. */
+  aspectRatio?: string
 }
 
-function RecipeImage({ src, title, fallbackLabel, width, height }: RecipeImageProps) {
+function RecipeImage({ src, title, fallbackLabel, width, height, aspectRatio }: RecipeImageProps) {
+  const size = aspectRatio ? { width, aspectRatio } : { width, height }
   const [failedSrc, setFailedSrc] = useState<string | null>(null)
   const broken = Boolean(src && failedSrc === src)
 
@@ -115,8 +118,7 @@ function RecipeImage({ src, title, fallbackLabel, width, height }: RecipeImagePr
     return (
       <Box
         sx={{
-          width,
-          height,
+          ...size,
           bgcolor: 'action.hover',
           borderRadius: 1,
           display: 'flex',
@@ -138,8 +140,7 @@ function RecipeImage({ src, title, fallbackLabel, width, height }: RecipeImagePr
       alt={title || fallbackLabel}
       onError={() => setFailedSrc(src)}
       sx={{
-        width,
-        height,
+        ...size,
         objectFit: 'cover',
         borderRadius: 1,
         display: 'block',
@@ -405,8 +406,8 @@ export default function RecipesPage() {
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppTopBar />
 
-      <Container maxWidth="lg" sx={{ py: 4, pb: { xs: 12, md: 4 } }}>
-        <Tabs value="recipes" sx={{ mb: 3 }} onChange={(_, value: 'recipes' | 'cookbooks') => {
+      <Container maxWidth="lg" sx={{ pt: { xs: 1, md: 2 }, pb: { xs: 12, md: 4 } }}>
+        <Tabs value="recipes" sx={{ mb: 0, '& .MuiTab-root.Mui-selected': { bgcolor: 'background.paper', borderTopLeftRadius: 12, borderTopRightRadius: 12 } }} onChange={(_, value: 'recipes' | 'cookbooks') => {
           if (value === 'cookbooks') {
             navigate('/cookbooks')
           }
@@ -414,291 +415,293 @@ export default function RecipesPage() {
           <Tab value="recipes" label={t.recipes.tabRecipes} />
           <Tab value="cookbooks" label={t.recipes.tabCookbooks} />
         </Tabs>
+        <Box sx={{ bgcolor: 'background.paper', borderRadius: '24px 24px 12px 12px', p: { xs: 2, md: 3 }, minHeight: '60vh' }}>
+          <Box sx={{ mb: 2 }}>
+            <TextField
+              fullWidth
+              size="small"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t.recipes.searchPlaceholder}
+              aria-label={t.recipes.searchLabel}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" color="action" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: searchQuery ? (
+                    <InputAdornment position="end">
+                      <IconButton
+                        size="small"
+                        aria-label={t.recipes.clearSearchAriaLabel}
+                        onClick={() => setSearchQuery('')}
+                        edge="end"
+                      >
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ) : null,
+                },
+              }}
+            />
+          </Box>
 
-        <Box sx={{ mb: 2 }}>
-          <TextField
-            fullWidth
-            size="small"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t.recipes.searchPlaceholder}
-            aria-label={t.recipes.searchLabel}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" color="action" />
-                  </InputAdornment>
-                ),
-                endAdornment: searchQuery ? (
-                  <InputAdornment position="end">
-                    <IconButton
-                      size="small"
-                      aria-label={t.recipes.clearSearchAriaLabel}
-                      onClick={() => setSearchQuery('')}
-                      edge="end"
-                    >
-                      <ClearIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                ) : null,
-              },
-            }}
-          />
-        </Box>
+          {/* Single row: the cookbook select absorbs the remaining width (and shrinks) so nothing wraps. */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3, flexWrap: 'nowrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+              <ToggleButtonGroup
+                value={viewMode}
+                exclusive
+                onChange={(_, next: ViewMode | null) => {
+                  if (next) setViewMode(next)
+                }}
+                size="small"
+              >
+                <ToggleButton value="list" aria-label={t.recipes.viewList}>
+                  <ViewListIcon fontSize="small" />
+                </ToggleButton>
+                <ToggleButton value="grid" aria-label={t.recipes.viewGrid}>
+                  <GridViewIcon fontSize="small" />
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {cookbookOptions.length > 0 && (
+              <FormControl size="small" sx={{ flex: 1, minWidth: 0, maxWidth: 260 }}>
+                <InputLabel id="recipes-cookbook-filter-label">{t.recipes.cookbookLabel}</InputLabel>
+                <Select
+                  labelId="recipes-cookbook-filter-label"
+                  label={t.recipes.cookbookLabel}
+                  value={cookbookOptions.some((cb) => cb.id === cookbookFilter) ? cookbookFilter : ''}
+                  onChange={(event) => changeCookbookFilter(event.target.value)}
+                >
+                  <MenuItem value="">{t.recipes.allCookbooksOption}</MenuItem>
+                  {cookbookOptions.map((cb) => (
+                    <MenuItem key={cb.id} value={cb.id}>
+                      {cb.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+
+            <FormControl size="small" sx={{ minWidth: 100, flexShrink: 0 }}>
+              <InputLabel id="recipes-sort-by-label">{t.recipes.sortLabel}</InputLabel>
+              <Select
+                labelId="recipes-sort-by-label"
+                label={t.recipes.sortLabel}
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value as SortField)}
+              >
+                <MenuItem value="updatedAt">{t.recipes.sortUpdated}</MenuItem>
+                <MenuItem value="title">{t.recipes.sortTitle}</MenuItem>
+              </Select>
+            </FormControl>
+
             <ToggleButtonGroup
-              value={viewMode}
+              value={order}
               exclusive
-              onChange={(_, next: ViewMode | null) => {
-                if (next) setViewMode(next)
+              onChange={(_, next: SortOrder | null) => {
+                if (next) setOrder(next)
               }}
               size="small"
+              sx={{ flexShrink: 0 }}
             >
-              <ToggleButton value="list" aria-label={t.recipes.viewList}>
-                <ViewListIcon fontSize="small" sx={{ mr: 0.5 }} />
-                {t.recipes.viewList}
-              </ToggleButton>
-              <ToggleButton value="grid" aria-label={t.recipes.viewGrid}>
-                <GridViewIcon fontSize="small" sx={{ mr: 0.5 }} />
-                {t.recipes.viewGrid}
-              </ToggleButton>
+              <Tooltip title={t.recipes.orderAsc}>
+                <ToggleButton value="asc" aria-label={t.recipes.orderAsc}>
+                  <ArrowUpwardIcon fontSize="small" />
+                </ToggleButton>
+              </Tooltip>
+              <Tooltip title={t.recipes.orderDesc}>
+                <ToggleButton value="desc" aria-label={t.recipes.orderDesc}>
+                  <ArrowDownwardIcon fontSize="small" />
+                </ToggleButton>
+              </Tooltip>
             </ToggleButtonGroup>
           </Box>
 
-          {cookbookOptions.length > 0 && (
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel id="recipes-cookbook-filter-label">{t.recipes.cookbookLabel}</InputLabel>
-              <Select
-                labelId="recipes-cookbook-filter-label"
-                label={t.recipes.cookbookLabel}
-                value={cookbookOptions.some((cb) => cb.id === cookbookFilter) ? cookbookFilter : ''}
-                onChange={(event) => changeCookbookFilter(event.target.value)}
-              >
-                <MenuItem value="">{t.recipes.allCookbooksOption}</MenuItem>
-                {cookbookOptions.map((cb) => (
-                  <MenuItem key={cb.id} value={cb.id}>
-                    {cb.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {error}
+            </Alert>
           )}
 
-          <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel id="recipes-sort-by-label">{t.recipes.sortLabel}</InputLabel>
-            <Select
-              labelId="recipes-sort-by-label"
-              label={t.recipes.sortLabel}
-              value={sortBy}
-              onChange={(event) => setSortBy(event.target.value as SortField)}
-            >
-              <MenuItem value="updatedAt">{t.recipes.sortUpdated}</MenuItem>
-              <MenuItem value="title">{t.recipes.sortTitle}</MenuItem>
-            </Select>
-          </FormControl>
-
-          <ToggleButtonGroup
-            value={order}
-            exclusive
-            onChange={(_, next: SortOrder | null) => {
-              if (next) setOrder(next)
-            }}
-            size="small"
-          >
-            <Tooltip title={t.recipes.orderAsc}>
-              <ToggleButton value="asc" aria-label={t.recipes.orderAsc}>
-                <ArrowUpwardIcon fontSize="small" />
-              </ToggleButton>
-            </Tooltip>
-            <Tooltip title={t.recipes.orderDesc}>
-              <ToggleButton value="desc" aria-label={t.recipes.orderDesc}>
-                <ArrowDownwardIcon fontSize="small" />
-              </ToggleButton>
-            </Tooltip>
-          </ToggleButtonGroup>
-        </Box>
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
-        )}
-
-        {!loading && recipes.length === 0 ? (
-          <Card elevation={0}>
-            <CardContent sx={{ p: 4, textAlign: 'center' }}>
-              <Typography variant="h6" sx={{ mb: 1 }}>
-                {debouncedSearch || cookbookFilter ? t.recipes.noSearchResultsTitle : t.recipes.noRecipesTitle}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {debouncedSearch || cookbookFilter ? t.recipes.noSearchResultsSubtitle : t.recipes.noRecipesSubtitle}
-              </Typography>
-            </CardContent>
-          </Card>
-        ) : viewMode === 'list' ? (
-          <Box sx={{ display: 'grid', gap: 0 }}>
-            {recipes.map((recipe) => (
-              <Box
-                key={recipe.id}
-                sx={{
-                  cursor: 'pointer',
-                  py: 2,
-                  borderBottom: '1px solid',
-                  borderColor: 'divider',
-                }}
-                onClick={() => navigate(`/recipes/${recipe.id}`)}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.25 }}>
-                  <RecipeImage
-                    src={recipe.imagePath}
-                    title={recipe.title}
-                    fallbackLabel={t.recipes.imageFallback}
-                    width={116}
-                    height={116}
-                  />
-                  <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5 }}>
-                      <Typography
-                        variant="h5"
-                        sx={{
-                          fontWeight: 600,
-                          fontSize: { xs: '1.15rem', sm: '1.5rem' },
-                          lineHeight: 1.3,
-                        }}
-                      >
-                        {recipe.title || '—'}
-                      </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-                        {recipe.status === 'draft' && (
-                          <Chip
-                            size="small"
-                            color="default"
-                            label={t.recipes.statusDraft}
-                          />
-                        )}
-                        {formatTotalTime(recipe) && (
-                          <Chip
-                            size="small"
-                            variant="outlined"
-                            label={formatTemplate(t.recipes.metaTotalTime, formatTotalTime(recipe)!)}
-                          />
-                        )}
-                        <Tooltip title={t.recipes.addToMealPlan}>
-                          <span>
-                            <IconButton
-                              size="small"
-                              aria-label={t.recipes.addToMealPlan}
-                              disabled={addingRecipeIds.has(recipe.id)}
-                              onClick={(e) => void handleAddToMealPlan(e, recipe)}
-                            >
-                              {addingRecipeIds.has(recipe.id) ? (
-                                <CircularProgress size={18} color="inherit" />
-                              ) : (
-                                <CalendarMonthIcon fontSize="small" />
-                              )}
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                      </Box>
-                    </Box>
-                    {recipe.tags.length > 0 && (
-                      <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mt: 1 }}>
-                        {recipe.tags.map((tag) => (
-                          <Chip key={tag.id} size="small" label={tag.name} />
-                        ))}
-                      </Box>
-                    )}
-                  </Box>
-                </Box>
-              </Box>
-            ))}
-          </Box>
-        ) : (
-          <Box
-            sx={{
-              display: 'grid',
-              gap: 2.25,
-              gridTemplateColumns: {
-                xs: 'repeat(2, minmax(0, 1fr))',
-                md: 'repeat(3, minmax(0, 1fr))',
-                xl: 'repeat(4, minmax(0, 1fr))',
-              },
-            }}
-          >
-            {recipes.map((recipe) => (
-              <Box
-                key={recipe.id}
-                data-testid="recipe-grid-card"
-                sx={{
-                  cursor: 'pointer',
-                  p: 0,
-                  display: 'flex',
-                  flexDirection: 'column',
-                }}
-                onClick={() => navigate(`/recipes/${recipe.id}`)}
-              >
-                <Box sx={{ width: '100%', aspectRatio: '16 / 10', mb: 1.25 }}>
-                  <RecipeImage
-                    src={recipe.imagePath}
-                    title={recipe.title}
-                    fallbackLabel={t.recipes.imageFallback}
-                    width="100%"
-                    height="100%"
-                  />
-                </Box>
-                <Typography
-                  variant="subtitle1"
-                  sx={{
-                    fontWeight: 600,
-                    fontSize: { xs: '1.05rem', sm: '1.15rem' },
-                    lineHeight: 1.3,
-                    mb: 0.75,
-                  }}
-                >
-                  {recipe.title || '—'}
+          {!loading && recipes.length === 0 ? (
+            <Card elevation={0}>
+              <CardContent sx={{ p: 4, textAlign: 'center' }}>
+                <Typography variant="h6" sx={{ mb: 1 }}>
+                  {debouncedSearch || cookbookFilter ? t.recipes.noSearchResultsTitle : t.recipes.noRecipesTitle}
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                    {recipe.status === 'draft' && (
-                      <Chip
-                        size="small"
-                        color="default"
-                        label={t.recipes.statusDraft}
-                      />
-                    )}
-                    {formatTotalTime(recipe) && (
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        label={formatTemplate(t.recipes.metaTotalTime, formatTotalTime(recipe)!)}
-                      />
-                    )}
+                <Typography variant="body2" color="text.secondary">
+                  {debouncedSearch || cookbookFilter ? t.recipes.noSearchResultsSubtitle : t.recipes.noRecipesSubtitle}
+                </Typography>
+              </CardContent>
+            </Card>
+          ) : viewMode === 'list' ? (
+            <Box sx={{ display: 'grid', gap: 0 }}>
+              {recipes.map((recipe) => (
+                <Box
+                  key={recipe.id}
+                  sx={{
+                    cursor: 'pointer',
+                    py: 2,
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                  }}
+                  onClick={() => navigate(`/recipes/${recipe.id}`)}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.25 }}>
+                    <RecipeImage
+                      src={recipe.imagePath}
+                      title={recipe.title}
+                      fallbackLabel={t.recipes.imageFallback}
+                      width={116}
+                      height={116}
+                    />
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5 }}>
+                        <Typography
+                          variant="h5"
+                          sx={{
+                            fontWeight: 600,
+                            fontSize: { xs: '1.15rem', sm: '1.5rem' },
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {recipe.title || '—'}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+                          {recipe.status === 'draft' && (
+                            <Chip
+                              size="small"
+                              color="default"
+                              label={t.recipes.statusDraft}
+                            />
+                          )}
+                          {formatTotalTime(recipe) && (
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              label={formatTemplate(t.recipes.metaTotalTime, formatTotalTime(recipe)!)}
+                            />
+                          )}
+                          <Tooltip title={t.recipes.addToMealPlan}>
+                            <span>
+                              <IconButton
+                                size="small"
+                                aria-label={t.recipes.addToMealPlan}
+                                disabled={addingRecipeIds.has(recipe.id)}
+                                onClick={(e) => void handleAddToMealPlan(e, recipe)}
+                              >
+                                {addingRecipeIds.has(recipe.id) ? (
+                                  <CircularProgress size={18} color="inherit" />
+                                ) : (
+                                  <CalendarMonthIcon fontSize="small" />
+                                )}
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </Box>
+                      </Box>
+                      {recipe.tags.length > 0 && (
+                        <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mt: 1 }}>
+                          {recipe.tags.map((tag) => (
+                            <Chip key={tag.id} size="small" label={tag.name} />
+                          ))}
+                        </Box>
+                      )}
+                    </Box>
                   </Box>
-                  <Tooltip title={t.recipes.addToMealPlan}>
-                    <span>
-                      <IconButton
-                        size="small"
-                        aria-label={t.recipes.addToMealPlan}
-                        disabled={addingRecipeIds.has(recipe.id)}
-                        onClick={(e) => void handleAddToMealPlan(e, recipe)}
-                      >
-                        {addingRecipeIds.has(recipe.id) ? (
-                          <CircularProgress size={16} color="inherit" />
-                        ) : (
-                          <CalendarMonthIcon fontSize="small" />
-                        )}
-                      </IconButton>
-                    </span>
-                  </Tooltip>
                 </Box>
-                <Box sx={{ flex: 1 }} />
-              </Box>
-            ))}
-          </Box>
-        )}
+              ))}
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                display: 'grid',
+                gap: 2.25,
+                gridTemplateColumns: {
+                  xs: 'repeat(2, minmax(0, 1fr))',
+                  md: 'repeat(3, minmax(0, 1fr))',
+                  xl: 'repeat(4, minmax(0, 1fr))',
+                },
+              }}
+            >
+              {recipes.map((recipe) => (
+                <Box
+                  key={recipe.id}
+                  data-testid="recipe-grid-card"
+                  sx={{
+                    cursor: 'pointer',
+                    p: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                  onClick={() => navigate(`/recipes/${recipe.id}`)}
+                >
+                  <Box sx={{ mb: 1.25 }}>
+                    <RecipeImage
+                      src={recipe.imagePath}
+                      title={recipe.title}
+                      fallbackLabel={t.recipes.imageFallback}
+                      width="100%"
+                      height="auto"
+                      aspectRatio="16 / 10"
+                    />
+                  </Box>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{
+                      fontWeight: 600,
+                      fontSize: { xs: '1.05rem', sm: '1.15rem' },
+                      lineHeight: 1.3,
+                      mb: 0.75,
+                    }}
+                  >
+                    {recipe.title || '—'}
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                      {recipe.status === 'draft' && (
+                        <Chip
+                          size="small"
+                          color="default"
+                          label={t.recipes.statusDraft}
+                        />
+                      )}
+                      {formatTotalTime(recipe) && (
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={formatTemplate(t.recipes.metaTotalTime, formatTotalTime(recipe)!)}
+                        />
+                      )}
+                    </Box>
+                    <Tooltip title={t.recipes.addToMealPlan}>
+                      <span>
+                        <IconButton
+                          size="small"
+                          aria-label={t.recipes.addToMealPlan}
+                          disabled={addingRecipeIds.has(recipe.id)}
+                          onClick={(e) => void handleAddToMealPlan(e, recipe)}
+                        >
+                          {addingRecipeIds.has(recipe.id) ? (
+                            <CircularProgress size={16} color="inherit" />
+                          ) : (
+                            <CalendarMonthIcon fontSize="small" />
+                          )}
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  </Box>
+                  <Box sx={{ flex: 1 }} />
+                </Box>
+              ))}
+            </Box>
+          )}
+        </Box>
       </Container>
 
       <MobileBottomNav value="recipes" />

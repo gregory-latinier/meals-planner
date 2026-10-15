@@ -24,9 +24,7 @@ import {
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import GridViewIcon from '@mui/icons-material/GridView'
-import MenuBookIcon from '@mui/icons-material/MenuBook'
 import RestaurantIcon from '@mui/icons-material/Restaurant'
-import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu'
 import ViewListIcon from '@mui/icons-material/ViewList'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
@@ -156,7 +154,6 @@ export default function CookbooksPage() {
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState('')
 
-  const [chooserOpen, setChooserOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [name, setName] = useState('')
   const [createError, setCreateError] = useState('')
@@ -225,7 +222,6 @@ export default function CookbooksPage() {
   }
 
   function openCreateDrawer() {
-    setChooserOpen(false)
     setCreateError('')
     setName('')
     setCreateOpen(true)
@@ -324,8 +320,8 @@ export default function CookbooksPage() {
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppTopBar />
 
-      <Container maxWidth="lg" sx={{ py: 4, pb: { xs: 12, md: 4 } }}>
-        <Tabs value="cookbooks" sx={{ mb: 3 }} onChange={(_, value: 'recipes' | 'cookbooks') => {
+      <Container maxWidth="lg" sx={{ pt: { xs: 1, md: 2 }, pb: { xs: 12, md: 4 } }}>
+        <Tabs value="cookbooks" sx={{ mb: 0, '& .MuiTab-root.Mui-selected': { bgcolor: 'background.paper', borderTopLeftRadius: 12, borderTopRightRadius: 12 } }} onChange={(_, value: 'recipes' | 'cookbooks') => {
           if (value === 'recipes') {
             navigate('/recipes')
           }
@@ -333,87 +329,113 @@ export default function CookbooksPage() {
           <Tab value="recipes" label={t.recipes.tabRecipes} />
           <Tab value="cookbooks" label={t.recipes.tabCookbooks} />
         </Tabs>
+        <Box sx={{ bgcolor: 'background.paper', borderRadius: '24px 24px 12px 12px', p: { xs: 2, md: 3 }, minHeight: '60vh' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3, flexWrap: 'nowrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+              <ToggleButtonGroup
+                value={viewMode}
+                exclusive
+                onChange={(_, value: ViewMode | null) => {
+                  if (value) setViewMode(value)
+                }}
+                size="small"
+              >
+                <ToggleButton value="list" aria-label={t.cookbooks.viewList}>
+                  <ViewListIcon fontSize="small" />
+                </ToggleButton>
+                <ToggleButton value="grid" aria-label={t.cookbooks.viewGrid}>
+                  <GridViewIcon fontSize="small" />
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <FormControl size="small" sx={{ minWidth: 100, flexShrink: 0 }}>
+              <InputLabel id="cookbooks-sort-by-label">{t.cookbooks.sortLabel}</InputLabel>
+              <Select
+                labelId="cookbooks-sort-by-label"
+                label={t.cookbooks.sortLabel}
+                value={sortBy}
+                onChange={(event) => {
+                  const value = event.target.value as SortField
+                  setSortBy(value)
+                }}
+              >
+                <MenuItem value="updatedAt">{t.cookbooks.sortUpdated}</MenuItem>
+                <MenuItem value="name">{t.cookbooks.sortName}</MenuItem>
+              </Select>
+            </FormControl>
+
             <ToggleButtonGroup
-              value={viewMode}
+              value={order}
               exclusive
-              onChange={(_, value: ViewMode | null) => {
-                if (value) setViewMode(value)
+              onChange={(_, value: SortOrder | null) => {
+                if (value) setOrder(value)
               }}
               size="small"
+              sx={{ flexShrink: 0 }}
             >
-              <ToggleButton value="list" aria-label={t.cookbooks.viewList}>
-                <ViewListIcon fontSize="small" sx={{ mr: 0.5 }} />
-                {t.cookbooks.viewList}
-              </ToggleButton>
-              <ToggleButton value="grid" aria-label={t.cookbooks.viewGrid}>
-                <GridViewIcon fontSize="small" sx={{ mr: 0.5 }} />
-                {t.cookbooks.viewGrid}
-              </ToggleButton>
+              <Tooltip title={t.cookbooks.orderAsc}>
+                <ToggleButton value="asc" aria-label={t.cookbooks.orderAsc}>
+                  <ArrowUpwardIcon fontSize="small" />
+                </ToggleButton>
+              </Tooltip>
+              <Tooltip title={t.cookbooks.orderDesc}>
+                <ToggleButton value="desc" aria-label={t.cookbooks.orderDesc}>
+                  <ArrowDownwardIcon fontSize="small" />
+                </ToggleButton>
+              </Tooltip>
             </ToggleButtonGroup>
           </Box>
 
-          <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel id="cookbooks-sort-by-label">{t.cookbooks.sortLabel}</InputLabel>
-            <Select
-              labelId="cookbooks-sort-by-label"
-              label={t.cookbooks.sortLabel}
-              value={sortBy}
-              onChange={(event) => {
-                const value = event.target.value as SortField
-                setSortBy(value)
-              }}
-            >
-              <MenuItem value="updatedAt">{t.cookbooks.sortUpdated}</MenuItem>
-              <MenuItem value="name">{t.cookbooks.sortName}</MenuItem>
-            </Select>
-          </FormControl>
+          {listError && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {listError}
+            </Alert>
+          )}
 
-          <ToggleButtonGroup
-            value={order}
-            exclusive
-            onChange={(_, value: SortOrder | null) => {
-              if (value) setOrder(value)
-            }}
-            size="small"
-          >
-            <Tooltip title={t.cookbooks.orderAsc}>
-              <ToggleButton value="asc" aria-label={t.cookbooks.orderAsc}>
-                <ArrowUpwardIcon fontSize="small" />
-              </ToggleButton>
-            </Tooltip>
-            <Tooltip title={t.cookbooks.orderDesc}>
-              <ToggleButton value="desc" aria-label={t.cookbooks.orderDesc}>
-                <ArrowDownwardIcon fontSize="small" />
-              </ToggleButton>
-            </Tooltip>
-          </ToggleButtonGroup>
-        </Box>
-
-        {listError && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {listError}
-          </Alert>
-        )}
-
-        {!loading && cookbooks.length === 0 ? (
-          <Card elevation={0}>
-            <CardContent sx={{ p: 4, textAlign: 'center' }}>
-              <Typography variant="h6" sx={{ mb: 1 }}>
-                {t.cookbooks.noCookbooksTitle}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {t.cookbooks.noCookbooksSubtitle}
-              </Typography>
-            </CardContent>
-          </Card>
-        ) : viewMode === 'grid' ? (
-          <Grid container spacing={3}>
-            {cookbooks.map((cookbook) => (
-              <Grid key={cookbook.id} size={{ xs: 12, sm: 6, md: 4 }}>
-                <Card elevation={0}>
+          {!loading && cookbooks.length === 0 ? (
+            <Card elevation={0}>
+              <CardContent sx={{ p: 4, textAlign: 'center' }}>
+                <Typography variant="h6" sx={{ mb: 1 }}>
+                  {t.cookbooks.noCookbooksTitle}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {t.cookbooks.noCookbooksSubtitle}
+                </Typography>
+              </CardContent>
+            </Card>
+          ) : viewMode === 'grid' ? (
+            <Grid container spacing={3}>
+              {cookbooks.map((cookbook) => (
+                <Grid key={cookbook.id} size={{ xs: 12, sm: 6, md: 4 }}>
+                  <Card elevation={0}>
+                    <CardActionArea onClick={() => openCookbookRecipes(cookbook.id)}>
+                      <CardContent sx={{ p: 3 }}>
+                        <Box sx={{ mb: 2 }}>
+                          <CookbookImage
+                            src={cookbook.coverImagePath}
+                            title={cookbook.name}
+                            fallbackLabel={imageFallbackLabel}
+                            width="100%"
+                            height={160}
+                          />
+                        </Box>
+                        <Typography variant="h6" sx={{ mb: 1 }}>
+                          {cookbook.name}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {formatRecipeCount(recipeCountLabel, cookbook.recipeCount)}
+                        </Typography>
+                      </CardContent>
+                    </CardActionArea>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          ) : (
+            <Box sx={{ display: 'grid', gap: 2 }}>
+              {cookbooks.map((cookbook) => (
+                <Card key={cookbook.id} elevation={0}>
                   <CardActionArea onClick={() => openCookbookRecipes(cookbook.id)}>
                     <CardContent sx={{ p: 3 }}>
                       <Box sx={{ mb: 2 }}>
@@ -422,7 +444,7 @@ export default function CookbooksPage() {
                           title={cookbook.name}
                           fallbackLabel={imageFallbackLabel}
                           width="100%"
-                          height={160}
+                          height={140}
                         />
                       </Box>
                       <Typography variant="h6" sx={{ mb: 1 }}>
@@ -434,36 +456,10 @@ export default function CookbooksPage() {
                     </CardContent>
                   </CardActionArea>
                 </Card>
-              </Grid>
-            ))}
-          </Grid>
-        ) : (
-          <Box sx={{ display: 'grid', gap: 2 }}>
-            {cookbooks.map((cookbook) => (
-              <Card key={cookbook.id} elevation={0}>
-                <CardActionArea onClick={() => openCookbookRecipes(cookbook.id)}>
-                  <CardContent sx={{ p: 3 }}>
-                    <Box sx={{ mb: 2 }}>
-                      <CookbookImage
-                        src={cookbook.coverImagePath}
-                        title={cookbook.name}
-                        fallbackLabel={imageFallbackLabel}
-                        width="100%"
-                        height={140}
-                      />
-                    </Box>
-                    <Typography variant="h6" sx={{ mb: 1 }}>
-                      {cookbook.name}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {formatRecipeCount(recipeCountLabel, cookbook.recipeCount)}
-                    </Typography>
-                  </CardContent>
-                </CardActionArea>
-              </Card>
-            ))}
-          </Box>
-        )}
+              ))}
+            </Box>
+          )}
+        </Box>
       </Container>
 
       <MobileBottomNav value={null} />
@@ -472,44 +468,10 @@ export default function CookbooksPage() {
         color="primary"
         aria-label={t.cookbooks.addFabAriaLabel}
         sx={{ position: 'fixed', bottom: { xs: 88, md: 24 }, right: 24 }}
-        onClick={() => setChooserOpen(true)}
+        onClick={openCreateDrawer}
       >
         <AddIcon />
       </Fab>
-
-      <Drawer anchor="bottom" open={chooserOpen} onClose={() => setChooserOpen(false)}>
-        <Box sx={{ p: 3, maxWidth: 720, mx: 'auto', width: '100%' }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            {t.cookbooks.addChooserTitle}
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <Tooltip title={t.cookbooks.recipeComingSoon}>
-                <span>
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    startIcon={<RestaurantMenuIcon />}
-                    disabled
-                  >
-                    {t.cookbooks.addRecipeOption}
-                  </Button>
-                </span>
-              </Tooltip>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <Button
-                fullWidth
-                variant="contained"
-                startIcon={<MenuBookIcon />}
-                onClick={openCreateDrawer}
-              >
-                {t.cookbooks.addCookbookOption}
-              </Button>
-            </Grid>
-          </Grid>
-        </Box>
-      </Drawer>
 
       <Drawer anchor="bottom" open={createOpen} onClose={closeCreateDrawer}>
         <Box

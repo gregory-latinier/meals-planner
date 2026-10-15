@@ -793,7 +793,7 @@ export default function MealPlanPage() {
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', pb: { xs: 10, md: 4 } }}>
       <AppTopBar />
 
-      <Container maxWidth="lg" sx={{ py: 3 }}>
+      <Container maxWidth="lg" sx={{ pt: { xs: 1, md: 2 }, pb: 3 }}>
         {/* Header & Controls */}
         <Box
           sx={{

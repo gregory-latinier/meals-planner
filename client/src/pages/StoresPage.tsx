@@ -344,7 +344,7 @@ export default function StoresPage() {
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppTopBar />
 
-      <Container maxWidth="lg" sx={{ py: 4, pb: { xs: 12, md: 4 } }}>
+      <Container maxWidth="lg" sx={{ pt: { xs: 1, md: 2 }, pb: { xs: 12, md: 4 } }}>
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
           {t.stores.title}
         </Typography>

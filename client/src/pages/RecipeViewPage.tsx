@@ -235,7 +235,7 @@ export default function RecipeViewPage() {
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppTopBar />
 
-      <Container maxWidth="md" sx={{ py: 4, pb: { xs: 12, md: 4 } }}>
+      <Container maxWidth="md" sx={{ pt: { xs: 1, md: 2 }, pb: { xs: 12, md: 4 } }}>
         {loading && (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {t.common.loading}
