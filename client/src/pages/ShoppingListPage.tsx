@@ -66,6 +66,7 @@ interface StoreOption {
 }
 
 const HIDE_CHECKED_KEY = 'mp_shopping_hide_checked'
+const SYNC_INTERVAL_MS = 5000
 const NO_STORE = '__none__'
 
 /** Quantity (bold) then name, on a single line. */
@@ -211,7 +212,8 @@ export default function ShoppingListPage() {
           refetchAfterPendingRef.current = true
           return
         }
-        setItems(data.items)
+        // Keep the same reference when nothing changed so periodic refreshes do not re-render the list.
+        setItems((prev) => (JSON.stringify(prev) === JSON.stringify(data.items) ? prev : data.items))
       } catch {
         setErrorMsg(t.shoppingList.loadFailed)
       } finally {
@@ -246,6 +248,24 @@ export default function ShoppingListPage() {
   useEffect(() => {
     if (connected) void load()
   }, [connected, load])
+
+  // The socket is not reliable on every host (shared hosting running several Node processes,
+  // proxies breaking WebSockets), so also poll while the page is visible and refresh on return.
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load()
+    }
+    const timer = window.setInterval(refresh, SYNC_INTERVAL_MS)
+    document.addEventListener('visibilitychange', refresh)
+    window.addEventListener('focus', refresh)
+    window.addEventListener('online', refresh)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', refresh)
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener('online', refresh)
+    }
+  }, [load])
 
   // Keep the screen on while shopping.
   useEffect(() => {
