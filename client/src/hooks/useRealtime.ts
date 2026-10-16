@@ -15,9 +15,13 @@ export function useRealtime(onHouseholdUpdate?: (data: { type: string; payload: 
     // In Vite dev and production, socket connects to window.location.origin (proxied or served together)
     const socket = io({
       withCredentials: true,
-      transports: ['websocket', 'polling'],
-      reconnectionAttempts: 5,
+      // Start with HTTP long-polling and upgrade to WebSocket when the host allows it: some
+      // proxies (shared hosting) corrupt WebSocket frames, and a websocket-first client
+      // would never fall back to polling.
+      transports: ['polling', 'websocket'],
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 2000,
+      reconnectionDelayMax: 15000,
     })
 
     socketRef.current = socket
