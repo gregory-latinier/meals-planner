@@ -24,9 +24,13 @@ import {
   Select,
   Snackbar,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
+import EditIcon from '@mui/icons-material/Edit'
+import DeleteIcon from '@mui/icons-material/Delete'
+import InventoryIcon from '@mui/icons-material/Inventory'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import HistoryIcon from '@mui/icons-material/History'
@@ -94,10 +98,16 @@ function ItemRow({
   item,
   onToggle,
   onEdit,
+  onDelete,
+  onPutInStock,
+  t,
 }: {
   item: ShoppingListItem
   onToggle: (item: ShoppingListItem) => void
   onEdit: (item: ShoppingListItem) => void
+  onDelete: (item: ShoppingListItem) => void
+  onPutInStock: (item: ShoppingListItem) => void
+  t: ReturnType<typeof useT>['t']
 }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -107,8 +117,51 @@ function ItemRow({
         slotProps={{ input: { 'aria-label': item.name } }}
         sx={{ p: 1.5 }}
       />
-      <Box onClick={() => onEdit(item)} sx={{ flexGrow: 1, py: 1.25, pr: 1, cursor: 'pointer', minWidth: 0 }}>
+      <Box onClick={() => onEdit(item)} sx={{ flexGrow: 1, py: 1.25, pr: 0.5, cursor: 'pointer', minWidth: 0 }}>
         <ItemLabel item={item} />
+      </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0, gap: 0.25, pr: 0.5 }}>
+        <Tooltip title={t.shoppingList.editTitle}>
+          <IconButton
+            size="small"
+            aria-label={t.shoppingList.editTitle}
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit(item)
+            }}
+            sx={{ color: 'text.secondary', p: 0.75 }}
+          >
+            <EditIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        {item.ingredientId && (
+          <Tooltip title={t.shoppingList.deleteAlwaysInStock}>
+            <IconButton
+              size="small"
+              aria-label={t.shoppingList.deleteAlwaysInStock}
+              onClick={(e) => {
+                e.stopPropagation()
+                onPutInStock(item)
+              }}
+              sx={{ color: 'warning.main', p: 0.75 }}
+            >
+              <InventoryIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+        <Tooltip title={t.shoppingList.delete}>
+          <IconButton
+            size="small"
+            aria-label={t.shoppingList.delete}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete(item)
+            }}
+            sx={{ color: 'error.main', p: 0.75 }}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       </Box>
     </Box>
   )
@@ -402,6 +455,28 @@ export default function ShoppingListPage() {
     )
   }
 
+  function handleDirectDelete(item: ShoppingListItem) {
+    if (editing?.id === item.id) {
+      setEditing(null)
+    }
+    void runOptimistic(
+      (prev) => prev.filter((i) => i.id !== item.id),
+      () => deleteShoppingListItem(item.id, false),
+      t.shoppingList.deleteFailed
+    )
+  }
+
+  function handleDirectPutInStock(item: ShoppingListItem) {
+    if (editing?.id === item.id) {
+      setEditing(null)
+    }
+    void runOptimistic(
+      (prev) => prev.filter((i) => i.id !== item.id),
+      () => deleteShoppingListItem(item.id, true),
+      t.shoppingList.deleteFailed
+    )
+  }
+
   function handleNeedIt(item: ShoppingListItem) {
     void runOptimistic(
       (prev) => prev.map((i) => (i.id === item.id ? { ...i, pantryCheck: false } : i)),
@@ -505,7 +580,14 @@ export default function ShoppingListPage() {
   function renderItem(item: ShoppingListItem) {
     return (
       <DraggableItem key={item.id} id={item.id}>
-        <ItemRow item={item} onToggle={handleToggle} onEdit={openEdit} />
+        <ItemRow
+          item={item}
+          onToggle={handleToggle}
+          onEdit={openEdit}
+          onDelete={handleDirectDelete}
+          onPutInStock={handleDirectPutInStock}
+          t={t}
+        />
       </DraggableItem>
     )
   }
