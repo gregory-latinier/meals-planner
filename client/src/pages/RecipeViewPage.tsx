@@ -28,6 +28,7 @@ import AppTopBar from '@/components/AppTopBar'
 import MobileBottomNav from '@/components/MobileBottomNav'
 import { useT } from '@/i18n/I18nContext'
 import { scaleQuantityText } from '@/lib/recipe-quantity-scaling'
+import { isHttpUrl } from '@/lib/source-url'
 
 type RecipeStatus = 'draft' | 'published'
 type RowKind = 'heading' | 'item'
@@ -366,9 +367,13 @@ export default function RecipeViewPage() {
 
                     {recipe.sourceUrl && (
                       <Typography variant="body2" sx={{ mt: 1.5 }}>
-                        <a href={recipe.sourceUrl} target="_blank" rel="noreferrer">
-                          {recipe.sourceUrl}
-                        </a>
+                        {isHttpUrl(recipe.sourceUrl) ? (
+                          <a href={recipe.sourceUrl.trim()} target="_blank" rel="noreferrer">
+                            {recipe.sourceUrl}
+                          </a>
+                        ) : (
+                          recipe.sourceUrl
+                        )}
                       </Typography>
                     )}
                   </Box>

@@ -1,6 +1,7 @@
 import { FastifyPluginAsync } from 'fastify'
 import { query } from '../db/index'
 import { generateId, requireAuth } from '../lib/auth'
+import { normalizeIngredientName } from '../lib/recipe-domain'
 
 export const taxonomyRoutes: FastifyPluginAsync = async (fastify) => {
   // Units
@@ -55,15 +56,16 @@ export const taxonomyRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Valid ingredient name required (max 300 chars)' })
     }
 
-    const nameNormalized = trimmed.toLowerCase()
+    // Ingredient names are always lowercase (the keyboard may have capitalized the first letter)
+    const ingredientName = normalizeIngredientName(trimmed)
     const id = generateId('ing')
 
     const res = await query(
       `INSERT INTO "Ingredient" ("id", "householdId", "name", "nameNormalized", "createdAt", "updatedAt")
        VALUES ($1, $2, $3, $4, NOW(), NOW())
-       ON CONFLICT ("householdId", "nameNormalized") DO UPDATE SET "updatedAt" = NOW()
+       ON CONFLICT ("householdId", "nameNormalized") DO UPDATE SET "name" = EXCLUDED."name", "updatedAt" = NOW()
        RETURNING *`,
-      [id, household.id, trimmed, nameNormalized]
+      [id, household.id, ingredientName, ingredientName]
     )
 
     return reply.status(201).send({ ingredient: res.rows[0] })

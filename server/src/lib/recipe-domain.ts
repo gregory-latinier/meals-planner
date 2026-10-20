@@ -52,6 +52,29 @@ export function normalizeLower(value: string): string {
   return value.trim().toLocaleLowerCase()
 }
 
+// Ingredient names are always stored in lowercase.
+export function normalizeIngredientName(value: string): string {
+  return normalizeLower(value)
+}
+
+// Section headings get a capitalized first letter; the rest is left untouched.
+export function normalizeHeading(value: string): string {
+  const trimmed = value.trim()
+  return trimmed.charAt(0).toLocaleUpperCase() + trimmed.slice(1)
+}
+
+// Capitalizes the text of instruction rows of kind "heading" in a raw instructions payload.
+export function normalizeInstructionHeadings<T>(instructions: T): T {
+  if (!Array.isArray(instructions)) return instructions
+
+  return instructions.map((row) => {
+    if (typeof row !== 'object' || row === null) return row
+    const candidate = row as { kind?: unknown; text?: unknown }
+    if (candidate.kind !== 'heading' || typeof candidate.text !== 'string') return row
+    return { ...candidate, text: normalizeHeading(candidate.text) }
+  }) as T
+}
+
 function parseOptionalInt(value: unknown, fieldName: string): number | null {
   if (value === null || value === undefined || value === '') return null
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {

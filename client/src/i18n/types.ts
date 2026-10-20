@@ -157,6 +157,8 @@ export interface Messages {
     imageGenerateAiButton: string
     imageGenerating: string
     imageDeleteButton: string
+    imageRotateLeftButton: string
+    imageRotateRightButton: string
     deleteRecipeButton: string
     deleteRecipeDialogTitle: string
     deleteRecipeConfirm: string
@@ -309,6 +311,30 @@ export interface Messages {
     tabGeneral: string
     tabAi: string
     tabStores: string
+    tabIngredients: string
+    ingredientsSection: {
+      title: string
+      description: string
+      findLabel: string
+      replaceLabel: string
+      wholeNameLabel: string
+      previewButton: string
+      previewing: string
+      noMatch: string
+      matchCount: (count: number) => string
+      selectAll: string
+      mergeInto: (name: string) => string
+      errorEmptyName: string
+      errorNameTooLong: string
+      applyButton: (count: number) => string
+      applying: string
+      confirmTitle: string
+      confirmMessage: (renamed: number, merged: number) => string
+      confirmCancel: string
+      done: (renamed: number, merged: number) => string
+      previewFailed: string
+      applyFailed: string
+    }
     backToApp: string
     saveButton: string
     saved: string
@@ -330,6 +356,22 @@ export interface Messages {
       }
       languageLabel: string
       languageHint: string
+    }
+    unusedImagesSection: {
+      title: string
+      description: string
+      scanning: string
+      none: string
+      found: (count: number, size: string) => string
+      refreshButton: string
+      deleteButton: string
+      deleting: string
+      confirmTitle: string
+      confirmMessage: (count: number, size: string) => string
+      confirmCancel: string
+      deleted: (count: number) => string
+      loadFailed: string
+      deleteFailed: string
     }
     aiSection: {
       title: string

@@ -9,6 +9,9 @@ import {
   MAX_QUANTITY_LENGTH,
   MAX_TITLE_LENGTH,
   MAX_UNIT_NAME_LENGTH,
+  normalizeHeading,
+  normalizeIngredientName,
+  normalizeInstructionHeadings,
   normalizeLower,
 } from './recipe-domain'
 import { downloadImageBuffer, processAndStoreRecipeImage, type StoredRecipeImage } from './recipe-image'
@@ -821,7 +824,7 @@ async function enrichFromJsonLdFallback(
 }
 
 async function resolveIngredientId(client: { query: typeof query }, householdId: string, name: string): Promise<string> {
-  const normalized = normalizeLower(name)
+  const normalized = normalizeIngredientName(name)
   const existing = await client.query<{ id: string }>(
     `SELECT id FROM "Ingredient" WHERE "householdId" = $1 AND "nameNormalized" = $2`,
     [householdId, normalized]
@@ -829,14 +832,14 @@ async function resolveIngredientId(client: { query: typeof query }, householdId:
   if (existing.rows.length > 0) {
     await client.query(
       `UPDATE "Ingredient" SET name = $1, "updatedAt" = NOW() WHERE id = $2`,
-      [name, existing.rows[0].id]
+      [normalized, existing.rows[0].id]
     )
     return existing.rows[0].id
   }
   const created = await client.query<{ id: string }>(
     `INSERT INTO "Ingredient" ("id", "householdId", name, "nameNormalized", "createdAt", "updatedAt")
      VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING id`,
-    [generateId('ing'), householdId, name, normalized]
+    [generateId('ing'), householdId, normalized, normalized]
   )
   return created.rows[0].id
 }
@@ -893,7 +896,7 @@ async function persistImportedRecipe(
         extracted.prepMinutes,
         extracted.cookMinutes,
         input.sourceUrl,
-        JSON.stringify(extracted.instructions),
+        JSON.stringify(normalizeInstructionHeadings(extracted.instructions)),
         image?.path ?? null,
         image?.mimeType ?? null,
         image?.width ?? null,
@@ -910,7 +913,7 @@ async function persistImportedRecipe(
           `INSERT INTO "RecipeIngredientRow" (
             "id", "recipeId", position, kind, heading, "createdAt", "updatedAt"
           ) VALUES ($1, $2, $3, 'HEADING', $4, NOW(), NOW())`,
-          [generateId('row'), recipeId, position++, row.heading ? clampText(row.heading, MAX_INGREDIENT_HEADING_LENGTH) : null]
+          [generateId('row'), recipeId, position++, row.heading ? normalizeHeading(clampText(row.heading, MAX_INGREDIENT_HEADING_LENGTH)) : null]
         )
         continue
       }

@@ -1,5 +1,6 @@
 import { query, withTransaction } from './index'
 import { generateId } from '../lib/auth'
+import { normalizeIngredientName } from '../lib/recipe-domain'
 
 interface RecipeSeedDef {
   title: string
@@ -1610,8 +1611,7 @@ async function seedTestRecipes() {
 
     // Helper functions
     async function getOrCreateIngredient(name: string): Promise<string> {
-      const trimmed = name.trim()
-      const normalized = trimmed.toLowerCase()
+      const normalized = normalizeIngredientName(name)
       if (ingMap.has(normalized)) return ingMap.get(normalized)!
 
       const id = generateId('c')
@@ -1619,7 +1619,7 @@ async function seedTestRecipes() {
         `INSERT INTO "Ingredient" ("id", "householdId", "name", "nameNormalized", "createdAt", "updatedAt")
          VALUES ($1, $2, $3, $4, NOW(), NOW())
          ON CONFLICT ("householdId", "nameNormalized") DO UPDATE SET "name" = EXCLUDED."name"`,
-        [id, householdId, trimmed, normalized]
+        [id, householdId, normalized, normalized]
       )
       ingMap.set(normalized, id)
       return id

@@ -5,6 +5,7 @@ import { query, withTransaction } from '../db/index'
 import { generateId, requireAuth } from '../lib/auth'
 import { importRecipeFromWebUrl, MISSING_GEMINI_API_KEY_ERROR } from '../lib/recipe-import-web-url'
 import { importRecipeFromText, validateImportText } from '../lib/recipe-import-text'
+import { normalizeHeading, normalizeInstructionHeadings } from '../lib/recipe-domain'
 
 export const recipeRoutes: FastifyPluginAsync = async (fastify) => {
   // Helper to fetch full recipe with tags and ingredient rows
@@ -129,7 +130,7 @@ export const recipeRoutes: FastifyPluginAsync = async (fastify) => {
     const res = await query(
       `INSERT INTO "Recipe" (
         "id", "householdId", "title", "status", "instructions", "autosaveVersion", "createdAt", "updatedAt"
-       ) VALUES ($1, $2, 'Sans titre', 'DRAFT', '[]'::jsonb, 0, NOW(), NOW())
+       ) VALUES ($1, $2, '', 'DRAFT', '[]'::jsonb, 0, NOW(), NOW())
        RETURNING *`,
       [id, household.id]
     )
@@ -210,7 +211,7 @@ export const recipeRoutes: FastifyPluginAsync = async (fastify) => {
             prepMinutes ? parseInt(prepMinutes, 10) : null,
             cookMinutes ? parseInt(cookMinutes, 10) : null,
             sourceUrl?.trim() || null,
-            JSON.stringify(instructions || []),
+            JSON.stringify(normalizeInstructionHeadings(instructions || [])),
             isPublished ? 'PUBLISHED' : 'DRAFT',
             imagePath !== undefined ? imagePath : null,
             imageMimeType !== undefined ? imageMimeType : null,
@@ -270,7 +271,7 @@ export const recipeRoutes: FastifyPluginAsync = async (fastify) => {
                 recipeId,
                 position++,
                 row.kind ? String(row.kind).toUpperCase() : 'ITEM',
-                row.heading || null,
+                row.heading ? normalizeHeading(String(row.heading)) || null : null,
                 row.ingredientId || null,
                 row.quantity || null,
                 row.unitId || null,
@@ -358,7 +359,7 @@ export const recipeRoutes: FastifyPluginAsync = async (fastify) => {
             prepMinutes ? parseInt(prepMinutes, 10) : null,
             cookMinutes ? parseInt(cookMinutes, 10) : null,
             sourceUrl?.trim() || null,
-            instructions ? JSON.stringify(instructions) : null,
+            instructions ? JSON.stringify(normalizeInstructionHeadings(instructions)) : null,
             imagePath !== undefined ? imagePath : null,
             imageMimeType !== undefined ? imageMimeType : null,
             imageWidth !== undefined ? imageWidth : null,
@@ -412,7 +413,7 @@ export const recipeRoutes: FastifyPluginAsync = async (fastify) => {
                 recipeId,
                 position++,
                 row.kind ? String(row.kind).toUpperCase() : 'ITEM',
-                row.heading || null,
+                row.heading ? normalizeHeading(String(row.heading)) || null : null,
                 row.ingredientId || null,
                 row.quantity || null,
                 row.unitId || null,

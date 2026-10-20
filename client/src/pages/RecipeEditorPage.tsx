@@ -29,12 +29,19 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
+import RotateLeftIcon from '@mui/icons-material/RotateLeft'
+import RotateRightIcon from '@mui/icons-material/RotateRight'
 import { useNavigate, useParams } from 'react-router-dom'
 import AppTopBar from '@/components/AppTopBar'
 import { useT } from '@/i18n/I18nContext'
 import { MAX_COOKBOOK_NAME_LENGTH } from '@/lib/cookbook-domain'
 
 type RowKind = 'heading' | 'item'
+
+function capitalizeFirst(value: string): string {
+  const trimmed = value.trim()
+  return trimmed.charAt(0).toLocaleUpperCase() + trimmed.slice(1)
+}
 
 interface IngredientOption {
   id: string
@@ -137,6 +144,7 @@ export default function RecipeEditorPage() {
   const [cookbookDialogError, setCookbookDialogError] = useState('')
   const [creatingCookbook, setCreatingCookbook] = useState(false)
   const [generatingAiImage, setGeneratingAiImage] = useState(false)
+  const [rotatingImage, setRotatingImage] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   const snapshot = useMemo(
@@ -554,6 +562,37 @@ export default function RecipeEditorPage() {
     setImageSizeBytes(image.imageSizeBytes ?? image.sizeBytes ?? null)
   }
 
+  async function handleRotateImage(degrees: 90 | -90) {
+    if (!imagePath || rotatingImage) return
+
+    setRotatingImage(true)
+    try {
+      const res = await fetch(imagePath)
+      if (!res.ok) throw new Error('Could not load image')
+      const bitmap = await createImageBitmap(await res.blob())
+
+      const canvas = document.createElement('canvas')
+      canvas.width = bitmap.height
+      canvas.height = bitmap.width
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Canvas not supported')
+
+      ctx.translate(canvas.width / 2, canvas.height / 2)
+      ctx.rotate((degrees * Math.PI) / 180)
+      ctx.drawImage(bitmap, -bitmap.width / 2, -bitmap.height / 2)
+      bitmap.close()
+
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9))
+      if (!blob) throw new Error('Could not encode image')
+
+      await handleImageUpload(new File([blob], 'recipe.jpg', { type: 'image/jpeg' }))
+    } catch {
+      setSaveError(t.recipes.errors.imageUploadFailed)
+    } finally {
+      setRotatingImage(false)
+    }
+  }
+
   async function handleGenerateAiImage() {
     const trimmedTitle = title.trim()
     if (!trimmedTitle) {
@@ -898,6 +937,26 @@ export default function RecipeEditorPage() {
                     {generatingAiImage ? t.recipes.imageGenerating : t.recipes.imageGenerateAiButton}
                   </Button>
                   {imagePath && (
+                    <>
+                      <IconButton
+                        aria-label={t.recipes.imageRotateLeftButton}
+                        title={t.recipes.imageRotateLeftButton}
+                        onClick={() => void handleRotateImage(-90)}
+                        disabled={rotatingImage}
+                      >
+                        <RotateLeftIcon />
+                      </IconButton>
+                      <IconButton
+                        aria-label={t.recipes.imageRotateRightButton}
+                        title={t.recipes.imageRotateRightButton}
+                        onClick={() => void handleRotateImage(90)}
+                        disabled={rotatingImage}
+                      >
+                        <RotateRightIcon />
+                      </IconButton>
+                    </>
+                  )}
+                  {imagePath && (
                     <Button
                       variant="outlined"
                       color="error"
@@ -971,6 +1030,11 @@ export default function RecipeEditorPage() {
                         const value = event.target.value
                         setIngredientRows((prev) => prev.map((item) => (item.id === row.id ? { ...item, heading: value } : item)))
                       }}
+                      onBlur={() =>
+                        setIngredientRows((prev) =>
+                          prev.map((item) => (item.id === row.id ? { ...item, heading: capitalizeFirst(item.heading) } : item))
+                        )
+                      }
                     />
                   ) : (
                     <Stack spacing={1}>
@@ -987,7 +1051,7 @@ export default function RecipeEditorPage() {
                           setIngredientRows((prev) =>
                             prev.map((item) =>
                               item.id === row.id
-                                ? { ...item, ingredientName: value, ingredientId: '' }
+                                ? { ...item, ingredientName: value.toLocaleLowerCase(), ingredientId: '' }
                                 : item
                             )
                           )
@@ -1014,7 +1078,16 @@ export default function RecipeEditorPage() {
                             )
                           }
                         }}
-                        renderInput={(params) => <TextField {...params} label={t.recipes.ingredientNameLabel} />}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label={t.recipes.ingredientNameLabel}
+                            slotProps={{
+                              ...params.slotProps,
+                              htmlInput: { ...params.slotProps.htmlInput, autoCapitalize: 'none' },
+                            }}
+                          />
+                        )}
                       />
 
                       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 1 }}>
@@ -1173,6 +1246,12 @@ export default function RecipeEditorPage() {
                     onChange={(event) => {
                       const value = event.target.value
                       setInstructionRows((prev) => prev.map((item) => (item.id === row.id ? { ...item, text: value } : item)))
+                    }}
+                    onBlur={() => {
+                      if (row.kind !== 'heading') return
+                      setInstructionRows((prev) =>
+                        prev.map((item) => (item.id === row.id ? { ...item, text: capitalizeFirst(item.text) } : item))
+                      )
                     }}
                     slotProps={{ htmlInput: { maxLength: row.kind === 'item' ? 10_000 : 500 } }}
                   />

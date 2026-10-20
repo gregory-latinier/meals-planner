@@ -6,7 +6,13 @@ import {
   Button,
   Card,
   CardContent,
+  CircularProgress,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Divider,
   Drawer,
   Fab,
@@ -30,6 +36,7 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AppTopBar from '@/components/AppTopBar'
 import MobileBottomNav from '@/components/MobileBottomNav'
+import IngredientBulkRename from '@/components/IngredientBulkRename'
 import { useT } from '@/i18n/I18nContext'
 import { SUPPORTED_LOCALES } from '@/i18n/types'
 import type { Locale } from '@/i18n/types'
@@ -80,6 +87,17 @@ function readStoredSort(): { sortBy: SortField; order: SortOrder } {
   }
 }
 
+interface UnusedImagesSummary {
+  count: number
+  totalBytes: number
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 function writeStoredSort(sortBy: SortField, order: SortOrder): void {
   window.localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify({ sortBy, order }))
 }
@@ -102,9 +120,16 @@ export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const rawTab = searchParams.get('tab')
-  const currentTab = rawTab === 'general' ? 'general' : rawTab === 'stores' ? 'stores' : 'ai'
+  const currentTab =
+    rawTab === 'general'
+      ? 'general'
+      : rawTab === 'stores'
+        ? 'stores'
+        : rawTab === 'ingredients'
+          ? 'ingredients'
+          : 'ai'
 
-  const handleTabChange = (_: React.SyntheticEvent, newTab: 'general' | 'ai' | 'stores') => {
+  const handleTabChange = (_: React.SyntheticEvent, newTab: 'general' | 'ai' | 'stores' | 'ingredients') => {
     setSearchParams(newTab === 'ai' ? {} : { tab: newTab }, { replace: true })
   }
 
@@ -116,6 +141,14 @@ export default function SettingsPage() {
   const [generalLoadError, setGeneralLoadError] = useState('')
   const [generalSaveError, setGeneralSaveError] = useState('')
   const [generalSaveSuccess, setGeneralSaveSuccess] = useState(false)
+
+  // Unused images State
+  const [unusedImages, setUnusedImages] = useState<UnusedImagesSummary | null>(null)
+  const [unusedImagesLoading, setUnusedImagesLoading] = useState(false)
+  const [unusedImagesDeleting, setUnusedImagesDeleting] = useState(false)
+  const [unusedImagesConfirmOpen, setUnusedImagesConfirmOpen] = useState(false)
+  const [unusedImagesError, setUnusedImagesError] = useState('')
+  const [unusedImagesDeletedCount, setUnusedImagesDeletedCount] = useState<number | null>(null)
 
   // AI Settings State
   const [selectedModel, setSelectedModel] = useState<SelectedModel>('gemini-free')
@@ -157,6 +190,52 @@ export default function SettingsPage() {
   const [editError, setEditError] = useState('')
   const [savingStore, setSavingStore] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  async function loadUnusedImages() {
+    setUnusedImagesLoading(true)
+    setUnusedImagesError('')
+
+    try {
+      const res = await fetch('/api/images/unused')
+      if (!res.ok) {
+        setUnusedImagesError(t.settings.unusedImagesSection.loadFailed)
+        return
+      }
+      setUnusedImages((await res.json()) as UnusedImagesSummary)
+    } catch {
+      setUnusedImagesError(t.settings.unusedImagesSection.loadFailed)
+    } finally {
+      setUnusedImagesLoading(false)
+    }
+  }
+
+  async function handleDeleteUnusedImages() {
+    setUnusedImagesConfirmOpen(false)
+    setUnusedImagesDeleting(true)
+    setUnusedImagesError('')
+    setUnusedImagesDeletedCount(null)
+
+    try {
+      const res = await fetch('/api/images/unused', { method: 'DELETE' })
+      if (!res.ok) {
+        setUnusedImagesError(t.settings.unusedImagesSection.deleteFailed)
+        return
+      }
+      const data = (await res.json()) as { deletedCount: number }
+      setUnusedImagesDeletedCount(data.deletedCount)
+      await loadUnusedImages()
+    } catch {
+      setUnusedImagesError(t.settings.unusedImagesSection.deleteFailed)
+    } finally {
+      setUnusedImagesDeleting(false)
+    }
+  }
+
+  useEffect(() => {
+    if (currentTab === 'general') {
+      void loadUnusedImages()
+    }
+  }, [currentTab])
 
   // Load General Settings
   useEffect(() => {
@@ -592,6 +671,7 @@ export default function SettingsPage() {
           <Tab value="general" label={t.settings.tabGeneral} />
           <Tab value="ai" label={t.settings.tabAi} />
           <Tab value="stores" label={t.settings.tabStores} />
+          <Tab value="ingredients" label={t.settings.tabIngredients} />
         </Tabs>
 
         {currentTab === 'general' && (
@@ -697,6 +777,91 @@ export default function SettingsPage() {
                 </Stack>
               </CardContent>
             </Card>
+
+            <Card elevation={0} sx={{ mt: 2 }}>
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="h6" sx={{ mb: 0.5 }}>
+                  {t.settings.unusedImagesSection.title}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {t.settings.unusedImagesSection.description}
+                </Typography>
+
+                {unusedImagesError && (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {unusedImagesError}
+                  </Alert>
+                )}
+
+                {unusedImagesDeletedCount !== null && (
+                  <Alert severity="success" sx={{ mb: 2 }}>
+                    {t.settings.unusedImagesSection.deleted(unusedImagesDeletedCount)}
+                  </Alert>
+                )}
+
+                <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
+                  {unusedImagesLoading ? (
+                    <>
+                      <CircularProgress size={18} />
+                      <Typography variant="body2">{t.settings.unusedImagesSection.scanning}</Typography>
+                    </>
+                  ) : (
+                    unusedImages && (
+                      <Typography variant="body2">
+                        {unusedImages.count === 0
+                          ? t.settings.unusedImagesSection.none
+                          : t.settings.unusedImagesSection.found(
+                              unusedImages.count,
+                              formatBytes(unusedImages.totalBytes)
+                            )}
+                      </Typography>
+                    )
+                  )}
+                </Stack>
+
+                <Stack direction="row" spacing={1} sx={{ mt: 2 }} useFlexGap>
+                  <Button
+                    variant="outlined"
+                    onClick={() => void loadUnusedImages()}
+                    disabled={unusedImagesLoading || unusedImagesDeleting}
+                  >
+                    {t.settings.unusedImagesSection.refreshButton}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    startIcon={unusedImagesDeleting ? <CircularProgress size={18} color="inherit" /> : <DeleteIcon />}
+                    onClick={() => setUnusedImagesConfirmOpen(true)}
+                    disabled={unusedImagesLoading || unusedImagesDeleting || !unusedImages || unusedImages.count === 0}
+                  >
+                    {unusedImagesDeleting
+                      ? t.settings.unusedImagesSection.deleting
+                      : t.settings.unusedImagesSection.deleteButton}
+                  </Button>
+                </Stack>
+              </CardContent>
+            </Card>
+
+            <Dialog open={unusedImagesConfirmOpen} onClose={() => setUnusedImagesConfirmOpen(false)}>
+              <DialogTitle>{t.settings.unusedImagesSection.confirmTitle}</DialogTitle>
+              <DialogContent>
+                <DialogContentText>
+                  {unusedImages &&
+                    t.settings.unusedImagesSection.confirmMessage(
+                      unusedImages.count,
+                      formatBytes(unusedImages.totalBytes)
+                    )}
+                </DialogContentText>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setUnusedImagesConfirmOpen(false)}>
+                  {t.settings.unusedImagesSection.confirmCancel}
+                </Button>
+                <Button color="error" onClick={() => void handleDeleteUnusedImages()}>
+                  {t.settings.unusedImagesSection.deleteButton}
+                </Button>
+              </DialogActions>
+            </Dialog>
           </Box>
         )}
 
@@ -836,6 +1001,8 @@ export default function SettingsPage() {
             </Card>
           </Box>
         )}
+
+        {currentTab === 'ingredients' && <IngredientBulkRename />}
 
         {currentTab === 'stores' && (
           <Box>

@@ -6,6 +6,7 @@ import sharp from 'sharp'
 import { query } from '../db/index'
 import { requireAuth } from '../lib/auth'
 import { generateRecipeImageWithImagen } from '../lib/recipe-image-ai'
+import { deleteUnusedImages, findUnusedImages } from '../lib/unused-images'
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads')
 
@@ -32,21 +33,41 @@ export const imageRoutes: FastifyPluginAsync = async (fastify) => {
     const filename = `${crypto.randomUUID()}.${metadata.format}`
     const filepath = path.join(UPLOAD_DIR, filename)
 
-    // Resize if too large
-    await sharp(buffer)
-      .resize({ width: 1920, height: 1080, fit: 'inside', withoutEnlargement: true })
+    // Apply EXIF orientation (metadata is stripped on write), then resize if too large
+    const info = await sharp(buffer)
+      .rotate()
+      .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
       .toFile(filepath)
 
-    const stats = fs.statSync(filepath)
     const relativeUrl = `/uploads/${filename}`
 
     return reply.status(201).send({
       imagePath: relativeUrl,
       imageMimeType: `image/${metadata.format}`,
-      imageWidth: metadata.width,
-      imageHeight: metadata.height,
-      imageSizeBytes: stats.size,
+      imageWidth: info.width,
+      imageHeight: info.height,
+      imageSizeBytes: info.size,
     })
+  })
+
+  fastify.get('/images/unused', async (request, reply) => {
+    await requireAuth(request, reply)
+
+    const unused = await findUnusedImages(UPLOAD_DIR)
+    return reply.send({
+      count: unused.length,
+      totalBytes: unused.reduce((sum, image) => sum + image.sizeBytes, 0),
+    })
+  })
+
+  fastify.delete('/images/unused', async (request, reply) => {
+    await requireAuth(request, reply)
+
+    const result = await deleteUnusedImages(UPLOAD_DIR)
+    if (result.failedCount > 0) {
+      request.log.error({ failedCount: result.failedCount }, 'Failed to delete some unused images')
+    }
+    return reply.send(result)
   })
 
   fastify.post('/recipes/generate-image', async (request, reply) => {

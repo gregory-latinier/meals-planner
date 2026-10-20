@@ -16,6 +16,7 @@ import { taxonomyRoutes } from './routes/taxonomy'
 import { recipeRoutes } from './routes/recipes'
 import { imageRoutes } from './routes/images'
 import { settingsRoutes } from './routes/settings'
+import { ingredientAdminRoutes } from './routes/ingredient-admin'
 import { mealPlanRoutes } from './routes/meal-plans'
 import { shoppingListRoutes } from './routes/shopping-lists'
 import { SESSION_COOKIE, getHouseholdIdForToken, householdRoom, readCookieFromHeader } from './lib/auth'
@@ -114,6 +115,7 @@ export function buildServer() {
   app.register(recipeRoutes, { prefix: '/api/recipes' })
   app.register(imageRoutes, { prefix: '/api' })
   app.register(settingsRoutes, { prefix: '/api/settings' })
+  app.register(ingredientAdminRoutes, { prefix: '/api/settings/ingredients' })
   app.register(mealPlanRoutes, { prefix: '/api/meal-plans', io })
   app.register(shoppingListRoutes, { prefix: '/api/shopping-lists', io })
 
