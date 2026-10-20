@@ -185,8 +185,9 @@ export const settingsRoutes: FastifyPluginAsync = async (fastify) => {
 
     const res = await query<{
       defaultMealPlanServings: number
+      weekStartDay: number
     }>(
-      `SELECT "defaultMealPlanServings"
+      `SELECT "defaultMealPlanServings", "weekStartDay"
        FROM "HouseholdPreferences"
        WHERE "householdId" = $1 LIMIT 1`,
       [household.id]
@@ -195,11 +196,13 @@ export const settingsRoutes: FastifyPluginAsync = async (fastify) => {
     if (res.rows.length === 0) {
       return reply.send({
         defaultMealPlanServings: 4,
+        weekStartDay: 1,
       })
     }
 
     return reply.send({
       defaultMealPlanServings: res.rows[0].defaultMealPlanServings,
+      weekStartDay: res.rows[0].weekStartDay ?? 1,
     })
   })
 
@@ -207,32 +210,62 @@ export const settingsRoutes: FastifyPluginAsync = async (fastify) => {
     const { household } = await requireAuth(request, reply)
     const body = request.body as {
       defaultMealPlanServings?: unknown
+      weekStartDay?: unknown
     }
 
-    if (body?.defaultMealPlanServings === undefined) {
-      return reply.status(400).send({ error: 'defaultMealPlanServings is required.' })
+    if (body?.defaultMealPlanServings === undefined && body?.weekStartDay === undefined) {
+      return reply.status(400).send({ error: 'At least one field to update is required.' })
     }
 
-    const rawVal = body.defaultMealPlanServings
-    const servings = typeof rawVal === 'number' ? rawVal : Number(rawVal)
-
-    if (!Number.isInteger(servings) || servings <= 0 || servings > 100) {
-      return reply.status(400).send({ error: 'defaultMealPlanServings must be an integer between 1 and 100.' })
+    let servings: number | undefined
+    if (body?.defaultMealPlanServings !== undefined) {
+      const rawVal = body.defaultMealPlanServings
+      servings = typeof rawVal === 'number' ? rawVal : Number(rawVal)
+      if (!Number.isInteger(servings) || servings <= 0 || servings > 100) {
+        return reply.status(400).send({ error: 'defaultMealPlanServings must be an integer between 1 and 100.' })
+      }
     }
+
+    let weekStartDay: number | undefined
+    if (body?.weekStartDay !== undefined) {
+      const rawWeekDay = body.weekStartDay
+      weekStartDay = typeof rawWeekDay === 'number' ? rawWeekDay : Number(rawWeekDay)
+      if (!Number.isInteger(weekStartDay) || weekStartDay < 0 || weekStartDay > 6) {
+        return reply.status(400).send({ error: 'weekStartDay must be an integer between 0 and 6.' })
+      }
+    }
+
+    const currentRes = await query<{
+      defaultMealPlanServings: number
+      weekStartDay: number
+    }>(
+      `SELECT "defaultMealPlanServings", "weekStartDay"
+       FROM "HouseholdPreferences"
+       WHERE "householdId" = $1 LIMIT 1`,
+      [household.id]
+    )
+
+    const nextServings = servings ?? currentRes.rows[0]?.defaultMealPlanServings ?? 4
+    const nextWeekStartDay = weekStartDay ?? currentRes.rows[0]?.weekStartDay ?? 1
 
     const upsertRes = await query<{
       defaultMealPlanServings: number
+      weekStartDay: number
     }>(
-      `INSERT INTO "HouseholdPreferences" ("householdId", "defaultMealPlanServings", "createdAt", "updatedAt")
-       VALUES ($1, $2, NOW(), NOW())
+      `INSERT INTO "HouseholdPreferences" ("householdId", "defaultMealPlanServings", "weekStartDay", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, NOW(), NOW())
        ON CONFLICT ("householdId")
-       DO UPDATE SET "defaultMealPlanServings" = EXCLUDED."defaultMealPlanServings", "updatedAt" = NOW()
-       RETURNING "defaultMealPlanServings"`,
-      [household.id, servings]
+       DO UPDATE SET
+         "defaultMealPlanServings" = EXCLUDED."defaultMealPlanServings",
+         "weekStartDay" = EXCLUDED."weekStartDay",
+         "updatedAt" = NOW()
+       RETURNING "defaultMealPlanServings", "weekStartDay"`,
+      [household.id, nextServings, nextWeekStartDay]
     )
 
     return reply.send({
       defaultMealPlanServings: upsertRes.rows[0].defaultMealPlanServings,
+      weekStartDay: upsertRes.rows[0].weekStartDay,
     })
   })
 }

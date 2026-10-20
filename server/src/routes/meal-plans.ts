@@ -7,13 +7,17 @@ interface MealPlansRouteOptions {
   io?: SocketIOServer
 }
 
-export function getIsoMonday(dateStr: string): string {
+export function getIsoWeekStart(dateStr: string, weekStartDay: number = 1): string {
   const [y, m, d] = dateStr.split('-').map(Number)
   const date = new Date(Date.UTC(y, m - 1, d))
-  const day = date.getUTCDay() // 0 is Sunday, 1 is Monday, ...
-  const diff = date.getUTCDate() - day + (day === 0 ? -6 : 1)
-  date.setUTCDate(diff)
+  const day = date.getUTCDay() // 0 is Sunday, 1 is Monday, ..., 6 is Saturday
+  const diffDays = (day - weekStartDay + 7) % 7
+  date.setUTCDate(date.getUTCDate() - diffDays)
   return date.toISOString().slice(0, 10)
+}
+
+export function getIsoMonday(dateStr: string): string {
+  return getIsoWeekStart(dateStr, 1)
 }
 
 export const mealPlanRoutes: FastifyPluginAsync<MealPlansRouteOptions> = async (fastify, opts) => {
@@ -202,7 +206,12 @@ export const mealPlanRoutes: FastifyPluginAsync<MealPlansRouteOptions> = async (
     const date = body.date !== undefined ? body.date : existing.date
     let weekStartDate = body.weekStartDate !== undefined ? body.weekStartDate : existing.weekStartDate
     if (body.date && body.weekStartDate === undefined && /^\d{4}-\d{2}-\d{2}$/.test(body.date)) {
-      weekStartDate = getIsoMonday(body.date)
+      const prefRes = await query<{ weekStartDay: number }>(
+        `SELECT "weekStartDay" FROM "HouseholdPreferences" WHERE "householdId" = $1 LIMIT 1`,
+        [household.id]
+      )
+      const weekStartDay = prefRes.rows[0]?.weekStartDay ?? 1
+      weekStartDate = getIsoWeekStart(body.date, weekStartDay)
     }
     const mealType = body.mealType !== undefined ? body.mealType.trim() : existing.mealType
     const servings = body.servings !== undefined ? body.servings : existing.servings

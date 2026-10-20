@@ -41,7 +41,7 @@ import MobileBottomNav from '@/components/MobileBottomNav'
 import AppTopBar from '@/components/AppTopBar'
 import { useT } from '@/i18n/I18nContext'
 import { createMealPlan } from '@/api/meal-plans'
-import { getNextWeekMonday } from '@/lib/date-utils'
+import { getNextPlanningWeekStart } from '@/lib/date-utils'
 
 type SortField = 'updatedAt' | 'title'
 type SortOrder = 'asc' | 'desc'
@@ -185,11 +185,24 @@ export default function RecipesPage() {
 
     setAddingRecipeIds((prev) => new Set(prev).add(recipe.id))
     try {
-      const nextWeekMondayStr = getNextWeekMonday()
+      let weekStartDay = 1
+      try {
+        const settingsRes = await fetch('/api/settings/general')
+        if (settingsRes.ok) {
+          const settingsData = await settingsRes.json()
+          if (settingsData.weekStartDay != null && typeof settingsData.weekStartDay === 'number') {
+            weekStartDay = settingsData.weekStartDay
+          }
+        }
+      } catch {
+        // Fallback to default Monday
+      }
+
+      const targetWeekStartStr = getNextPlanningWeekStart(new Date(), weekStartDay)
       await createMealPlan({
         title: recipe.title || t.recipes.untitledFallback,
         recipeId: recipe.id,
-        weekStartDate: nextWeekMondayStr,
+        weekStartDate: targetWeekStartStr,
         mealType: 'dinner',
       })
       setSnackbarSeverity('success')

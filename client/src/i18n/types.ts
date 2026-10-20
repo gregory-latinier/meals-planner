@@ -317,6 +317,17 @@ export interface Messages {
       description: string
       defaultServingsLabel: string
       defaultServingsHint: string
+      weekStartDayLabel: string
+      weekStartDayHint: string
+      weekDays: {
+        sunday: string
+        monday: string
+        tuesday: string
+        wednesday: string
+        thursday: string
+        friday: string
+        saturday: string
+      }
       languageLabel: string
       languageHint: string
     }

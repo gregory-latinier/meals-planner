@@ -110,6 +110,7 @@ export default function SettingsPage() {
 
   // General Settings State
   const [defaultServings, setDefaultServings] = useState<string>('4')
+  const [weekStartDay, setWeekStartDay] = useState<number>(1)
   const [generalLoading, setGeneralLoading] = useState(true)
   const [generalSaving, setGeneralSaving] = useState(false)
   const [generalLoadError, setGeneralLoadError] = useState('')
@@ -177,6 +178,9 @@ export default function SettingsPage() {
         if (!active) return
         if (data.defaultMealPlanServings != null) {
           setDefaultServings(String(data.defaultMealPlanServings))
+        }
+        if (data.weekStartDay != null && typeof data.weekStartDay === 'number') {
+          setWeekStartDay(data.weekStartDay)
         }
       } catch {
         if (active) setGeneralLoadError(t.settings.errors.loadFailed)
@@ -321,7 +325,10 @@ export default function SettingsPage() {
       const res = await fetch('/api/settings/general', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ defaultMealPlanServings: parsed }),
+        body: JSON.stringify({
+          defaultMealPlanServings: parsed,
+          weekStartDay,
+        }),
       })
 
       if (!res.ok) {
@@ -332,6 +339,9 @@ export default function SettingsPage() {
       const data = await res.json()
       if (data.defaultMealPlanServings != null) {
         setDefaultServings(String(data.defaultMealPlanServings))
+      }
+      if (data.weekStartDay != null && typeof data.weekStartDay === 'number') {
+        setWeekStartDay(data.weekStartDay)
       }
       setGeneralSaveSuccess(true)
     } catch {
@@ -651,6 +661,29 @@ export default function SettingsPage() {
                     slotProps={{ htmlInput: { min: 1, max: 100 } }}
                     sx={{ maxWidth: 320 }}
                   />
+
+                  <TextField
+                    select
+                    label={t.settings.generalSection.weekStartDayLabel}
+                    helperText={t.settings.generalSection.weekStartDayHint}
+                    size="small"
+                    value={weekStartDay}
+                    onChange={(e) => {
+                      setWeekStartDay(Number(e.target.value))
+                      setGeneralSaveSuccess(false)
+                    }}
+                    disabled={generalLoading || generalSaving}
+                    sx={{ maxWidth: 320 }}
+                    slotProps={{ select: { native: true } }}
+                  >
+                    <option value={1}>{t.settings.generalSection.weekDays.monday}</option>
+                    <option value={2}>{t.settings.generalSection.weekDays.tuesday}</option>
+                    <option value={3}>{t.settings.generalSection.weekDays.wednesday}</option>
+                    <option value={4}>{t.settings.generalSection.weekDays.thursday}</option>
+                    <option value={5}>{t.settings.generalSection.weekDays.friday}</option>
+                    <option value={6}>{t.settings.generalSection.weekDays.saturday}</option>
+                    <option value={0}>{t.settings.generalSection.weekDays.sunday}</option>
+                  </TextField>
 
                   <Box>
                     <Button

@@ -54,7 +54,7 @@ import {
   updateMealPlan,
   deleteMealPlan,
 } from '../api/meal-plans'
-import { formatLocalDate, getMonday } from '../lib/date-utils'
+import { formatLocalDate, getWeekStart } from '../lib/date-utils'
 import { generateShoppingList } from '../api/shopping-lists'
 import { scaleQuantityText } from '../lib/recipe-quantity-scaling'
 
@@ -257,6 +257,7 @@ export default function MealPlanPage() {
   const [items, setItems] = useState<MealPlanItemData[]>([])
   const [recipes, setRecipes] = useState<RecipeOption[]>([])
   const [defaultServings, setDefaultServings] = useState<number>(4)
+  const [weekStartDay, setWeekStartDay] = useState<number>(1)
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [snackbarMsg, setSnackbarMsg] = useState<string | null>(null)
@@ -294,7 +295,7 @@ export default function MealPlanPage() {
   const [targetServings, setTargetServings] = useState<number | null>(null)
 
   // Date range computations
-  const weekStart = useMemo(() => getMonday(currentDate), [currentDate])
+  const weekStart = useMemo(() => getWeekStart(currentDate, weekStartDay), [currentDate, weekStartDay])
   const weekStartDateStr = useMemo(() => formatLocalDate(weekStart), [weekStart])
 
   const weekDays = useMemo(() => {
@@ -313,13 +314,12 @@ export default function MealPlanPage() {
     const firstDay = new Date(year, month, 1)
     const lastDay = new Date(year, month + 1, 0)
 
-    // Calendar grid start (Monday before or on firstDay)
-    const startCal = getMonday(firstDay)
-    // Calendar grid end (Sunday after or on lastDay)
-    const endCal = new Date(lastDay)
-    const endDayOfWeek = endCal.getDay()
-    const diff = endDayOfWeek === 0 ? 0 : 7 - endDayOfWeek
-    endCal.setDate(endCal.getDate() + diff)
+    // Calendar grid start
+    const startCal = getWeekStart(firstDay, weekStartDay)
+    // Calendar grid end (6 days after the weekStart of lastDay)
+    const lastDayWeekStart = getWeekStart(lastDay, weekStartDay)
+    const endCal = new Date(lastDayWeekStart)
+    endCal.setDate(lastDayWeekStart.getDate() + 6)
 
     return {
       firstDay,
@@ -329,7 +329,7 @@ export default function MealPlanPage() {
       startCal,
       endCal,
     }
-  }, [currentDate])
+  }, [currentDate, weekStartDay])
 
   const loadRecipes = useCallback(async () => {
     try {
@@ -356,6 +356,9 @@ export default function MealPlanPage() {
         const data = await res.json()
         if (typeof data.defaultMealPlanServings === 'number' && data.defaultMealPlanServings > 0) {
           setDefaultServings(data.defaultMealPlanServings)
+        }
+        if (typeof data.weekStartDay === 'number' && data.weekStartDay >= 0 && data.weekStartDay <= 6) {
+          setWeekStartDay(data.weekStartDay)
         }
       }
     } catch {
@@ -632,7 +635,7 @@ export default function MealPlanPage() {
     let itemWeekStart = weekStartDateStr
     if (payloadDate) {
       const [y, m, d] = payloadDate.split('-').map(Number)
-      itemWeekStart = formatLocalDate(getMonday(new Date(y, m - 1, d)))
+      itemWeekStart = formatLocalDate(getWeekStart(new Date(y, m - 1, d), weekStartDay))
     }
 
     const payload = {
@@ -671,7 +674,7 @@ export default function MealPlanPage() {
 
     const previousItems = items
     const [y, m, d] = targetDate.split('-').map(Number)
-    const targetWeekStart = formatLocalDate(getMonday(new Date(y, m - 1, d)))
+    const targetWeekStart = formatLocalDate(getWeekStart(new Date(y, m - 1, d), weekStartDay))
 
     // Optimistic update
     setItems((prev) =>
@@ -924,6 +927,170 @@ export default function MealPlanPage() {
         ) : viewMode === 'week' ? (
           /* WEEK VIEW */
           <Box>
+            {/* Unassigned / Unscheduled Meals */}
+            <Box
+              sx={{ mb: 3 }}
+              onDragOver={(e) => {
+                e.preventDefault()
+                if (dragOverTarget !== 'unassigned') setDragOverTarget('unassigned')
+              }}
+              onDragLeave={() => {
+                if (dragOverTarget === 'unassigned') setDragOverTarget(null)
+              }}
+              onDrop={(e) => {
+                e.preventDefault()
+                handleDropOnUnassigned()
+              }}
+            >
+              <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 600 }}>
+                {t.mealPlan.unassignedMeals}
+              </Typography>
+              {weekItemsByDate.unassigned.length === 0 ? (
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 3,
+                    textAlign: 'center',
+                    borderStyle: 'dashed',
+                    borderWidth: 2,
+                    borderColor: dragOverTarget === 'unassigned' ? 'primary.main' : 'divider',
+                    bgcolor: dragOverTarget === 'unassigned' ? 'action.selected' : 'background.paper',
+                    transition: 'background-color 0.2s, border-color 0.2s',
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary">
+                    {t.mealPlan.dropHereToUnschedule}
+                  </Typography>
+                </Paper>
+              ) : (
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 1,
+                    border: '2px dashed',
+                    borderColor: dragOverTarget === 'unassigned' ? 'primary.main' : 'transparent',
+                    bgcolor: dragOverTarget === 'unassigned' ? 'action.selected' : 'transparent',
+                    transition: 'background-color 0.2s, border-color 0.2s',
+                  }}
+                >
+                  <Grid container spacing={2}>
+                    {weekItemsByDate.unassigned.map((item) => (
+                      <Grid key={item.id} size={{ xs: 12, sm: 6, md: 4 }}>
+                        <Card
+                          variant="outlined"
+                          draggable
+                          onDragStart={() => {
+                            wasDraggedRef.current = true
+                            setDraggedItemId(item.id)
+                          }}
+                          onDragEnd={() => {
+                            setDraggedItemId(null)
+                            setDragOverTarget(null)
+                            setTimeout(() => {
+                              wasDraggedRef.current = false
+                            }, 100)
+                          }}
+                          onClick={() => handleCardClick(item)}
+                          sx={{
+                            p: 1.5,
+                            cursor: 'pointer',
+                            opacity: draggedItemId === item.id ? 0.4 : 1,
+                            transition: 'box-shadow 0.15s',
+                            '&:hover': { boxShadow: 1 },
+                            '&:active': { cursor: 'grabbing' },
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, minWidth: 0, flexGrow: 1 }}>
+                              <RecipeThumbnail
+                                src={item.recipeCoverImagePath}
+                                alt={item.title}
+                                size={58}
+                                borderRadius={1.5}
+                              />
+                              <Box sx={{ minWidth: 0, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                                <Typography
+                                  variant="subtitle2"
+                                  sx={{
+                                    fontWeight: 600,
+                                    wordBreak: 'break-word',
+                                    lineHeight: 1.3,
+                                  }}
+                                >
+                                  {item.title}
+                                </Typography>
+                                <Box sx={{ display: 'flex', gap: 0.75, mt: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                                  <Typography
+                                    variant="caption"
+                                    sx={{
+                                      bgcolor: 'primary.light',
+                                      color: 'primary.contrastText',
+                                      px: 0.75,
+                                      py: 0.1,
+                                      borderRadius: 1,
+                                      fontSize: '0.65rem',
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    {getMealTypeLabel(item.mealType)}
+                                  </Typography>
+                                  {item.servings != null && (
+                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                      {item.servings} {t.mealPlan.servingsLabel.toLowerCase()}
+                                    </Typography>
+                                  )}
+                                  {item.recipePrepMinutes != null && (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.35, color: 'text.secondary' }}>
+                                      <AccessTimeIcon sx={{ fontSize: '0.75rem' }} />
+                                      <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+                                        {item.recipePrepMinutes} min
+                                      </Typography>
+                                    </Box>
+                                  )}
+                                </Box>
+                                {item.notes && (
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    sx={{ mt: 0.5, fontStyle: 'italic', fontSize: '0.7rem' }}
+                                  >
+                                    {item.notes}
+                                  </Typography>
+                                )}
+                              </Box>
+                            </Box>
+
+                            <Box
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
+                              sx={{ display: 'flex', alignItems: 'center' }}
+                            >
+                              <IconButton
+                                size="small"
+                                onClick={() => handleOpenEdit(item)}
+                                aria-label={t.mealPlan.editMeal}
+                                title={t.mealPlan.editMeal}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => handleOpenDelete(item)}
+                                aria-label={t.mealPlan.deleteMeal}
+                                title={t.mealPlan.deleteMeal}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
+                          </Box>
+                        </Card>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+              )}
+            </Box>
             <Grid container spacing={2}>
               {weekDays.map((day) => {
                 const dateStr = formatLocalDate(day)
@@ -1145,178 +1312,15 @@ export default function MealPlanPage() {
               })}
             </Grid>
 
-            {/* Unassigned / Unscheduled Meals */}
-            <Box
-              sx={{ mt: 4 }}
-              onDragOver={(e) => {
-                e.preventDefault()
-                if (dragOverTarget !== 'unassigned') setDragOverTarget('unassigned')
-              }}
-              onDragLeave={() => {
-                if (dragOverTarget === 'unassigned') setDragOverTarget(null)
-              }}
-              onDrop={(e) => {
-                e.preventDefault()
-                handleDropOnUnassigned()
-              }}
-            >
-              <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 600 }}>
-                {t.mealPlan.unassignedMeals}
-              </Typography>
-              {weekItemsByDate.unassigned.length === 0 ? (
-                <Paper
-                  variant="outlined"
-                  sx={{
-                    p: 3,
-                    textAlign: 'center',
-                    borderStyle: 'dashed',
-                    borderWidth: 2,
-                    borderColor: dragOverTarget === 'unassigned' ? 'primary.main' : 'divider',
-                    bgcolor: dragOverTarget === 'unassigned' ? 'action.selected' : 'background.paper',
-                    transition: 'background-color 0.2s, border-color 0.2s',
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    {t.mealPlan.dropHereToUnschedule}
-                  </Typography>
-                </Paper>
-              ) : (
-                <Box
-                  sx={{
-                    p: 1.5,
-                    borderRadius: 1,
-                    border: '2px dashed',
-                    borderColor: dragOverTarget === 'unassigned' ? 'primary.main' : 'transparent',
-                    bgcolor: dragOverTarget === 'unassigned' ? 'action.selected' : 'transparent',
-                    transition: 'background-color 0.2s, border-color 0.2s',
-                  }}
-                >
-                  <Grid container spacing={2}>
-                    {weekItemsByDate.unassigned.map((item) => (
-                      <Grid key={item.id} size={{ xs: 12, sm: 6, md: 4 }}>
-                        <Card
-                          variant="outlined"
-                          draggable
-                          onDragStart={() => {
-                            wasDraggedRef.current = true
-                            setDraggedItemId(item.id)
-                          }}
-                          onDragEnd={() => {
-                            setDraggedItemId(null)
-                            setDragOverTarget(null)
-                            setTimeout(() => {
-                              wasDraggedRef.current = false
-                            }, 100)
-                          }}
-                          onClick={() => handleCardClick(item)}
-                          sx={{
-                            p: 1.5,
-                            cursor: 'pointer',
-                            opacity: draggedItemId === item.id ? 0.4 : 1,
-                            transition: 'box-shadow 0.15s',
-                            '&:hover': { boxShadow: 1 },
-                            '&:active': { cursor: 'grabbing' },
-                          }}
-                        >
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, minWidth: 0, flexGrow: 1 }}>
-                              <RecipeThumbnail
-                                src={item.recipeCoverImagePath}
-                                alt={item.title}
-                                size={58}
-                                borderRadius={1.5}
-                              />
-                              <Box sx={{ minWidth: 0, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-                                <Typography
-                                  variant="subtitle2"
-                                  sx={{
-                                    fontWeight: 600,
-                                    wordBreak: 'break-word',
-                                    lineHeight: 1.3,
-                                  }}
-                                >
-                                  {item.title}
-                                </Typography>
-                                <Box sx={{ display: 'flex', gap: 0.75, mt: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
-                                  <Typography
-                                    variant="caption"
-                                    sx={{
-                                      bgcolor: 'primary.light',
-                                      color: 'primary.contrastText',
-                                      px: 0.75,
-                                      py: 0.1,
-                                      borderRadius: 1,
-                                      fontSize: '0.65rem',
-                                      fontWeight: 600,
-                                    }}
-                                  >
-                                    {getMealTypeLabel(item.mealType)}
-                                  </Typography>
-                                  {item.servings != null && (
-                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                                      {item.servings} {t.mealPlan.servingsLabel.toLowerCase()}
-                                    </Typography>
-                                  )}
-                                  {item.recipePrepMinutes != null && (
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.35, color: 'text.secondary' }}>
-                                      <AccessTimeIcon sx={{ fontSize: '0.75rem' }} />
-                                      <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
-                                        {item.recipePrepMinutes} min
-                                      </Typography>
-                                    </Box>
-                                  )}
-                                </Box>
-                                {item.notes && (
-                                  <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                    sx={{ mt: 0.5, fontStyle: 'italic', fontSize: '0.7rem' }}
-                                  >
-                                    {item.notes}
-                                  </Typography>
-                                )}
-                              </Box>
-                            </Box>
 
-                            <Box
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onClick={(e) => e.stopPropagation()}
-                              sx={{ display: 'flex', alignItems: 'center' }}
-                            >
-                              <IconButton
-                                size="small"
-                                onClick={() => handleOpenEdit(item)}
-                                aria-label={t.mealPlan.editMeal}
-                                title={t.mealPlan.editMeal}
-                              >
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={() => handleOpenDelete(item)}
-                                aria-label={t.mealPlan.deleteMeal}
-                                title={t.mealPlan.deleteMeal}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Box>
-                          </Box>
-                        </Card>
-                      </Grid>
-                    ))}
-                  </Grid>
-                </Box>
-              )}
-            </Box>
           </Box>
         ) : (
           /* MONTH VIEW */
           <Box>
             <Grid container spacing={1}>
-              {/* Day headers Mon-Sun */}
-              {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((_, idx) => {
-                const sampleDay = new Date(2026, 9, 12 + idx) // 2026-10-12 is Monday
+              {/* Day headers starting from configured weekStartDay */}
+              {Array.from({ length: 7 }).map((_, idx) => {
+                const sampleDay = new Date(2026, 9, 11 + ((weekStartDay + idx) % 7)) // 2026-10-11 is Sunday (day 0)
                 return (
                   <Grid key={idx} size={{ xs: 12 / 7 }}>
                     <Typography
