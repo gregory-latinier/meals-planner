@@ -29,6 +29,8 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
+import UploadFileIcon from '@mui/icons-material/UploadFile'
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import RotateLeftIcon from '@mui/icons-material/RotateLeft'
 import RotateRightIcon from '@mui/icons-material/RotateRight'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -897,8 +899,13 @@ export default function RecipeEditorPage() {
                   {t.recipes.imageLabel}
                 </Typography>
                 <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }} useFlexGap>
-                  <Button component="label" variant="outlined">
-                    {t.recipes.imageUploadButton}
+                  <IconButton
+                    component="label"
+                    color="primary"
+                    aria-label={t.recipes.imageUploadButton}
+                    title={t.recipes.imageUploadButton}
+                  >
+                    <UploadFileIcon />
                     <input
                       hidden
                       type="file"
@@ -911,9 +918,14 @@ export default function RecipeEditorPage() {
                         event.currentTarget.value = ''
                       }}
                     />
-                  </Button>
-                  <Button component="label" variant="outlined">
-                    {t.recipes.imageCaptureButton}
+                  </IconButton>
+                  <IconButton
+                    component="label"
+                    color="primary"
+                    aria-label={t.recipes.imageCaptureButton}
+                    title={t.recipes.imageCaptureButton}
+                  >
+                    <PhotoCameraIcon />
                     <input
                       hidden
                       type="file"
@@ -927,15 +939,16 @@ export default function RecipeEditorPage() {
                         event.currentTarget.value = ''
                       }}
                     />
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    startIcon={generatingAiImage ? <CircularProgress size={18} color="inherit" /> : <AutoAwesomeIcon />}
+                  </IconButton>
+                  <IconButton
+                    color="primary"
+                    aria-label={generatingAiImage ? t.recipes.imageGenerating : t.recipes.imageGenerateAiButton}
+                    title={generatingAiImage ? t.recipes.imageGenerating : t.recipes.imageGenerateAiButton}
                     onClick={() => void handleGenerateAiImage()}
                     disabled={generatingAiImage}
                   >
-                    {generatingAiImage ? t.recipes.imageGenerating : t.recipes.imageGenerateAiButton}
-                  </Button>
+                    {generatingAiImage ? <CircularProgress size={24} color="inherit" /> : <AutoAwesomeIcon />}
+                  </IconButton>
                   {imagePath && (
                     <>
                       <IconButton
@@ -957,10 +970,10 @@ export default function RecipeEditorPage() {
                     </>
                   )}
                   {imagePath && (
-                    <Button
-                      variant="outlined"
+                    <IconButton
                       color="error"
-                      startIcon={<DeleteIcon />}
+                      aria-label={t.recipes.imageDeleteButton}
+                      title={t.recipes.imageDeleteButton}
                       onClick={() => {
                         setImagePath(null)
                         setImageMimeType(null)
@@ -969,8 +982,8 @@ export default function RecipeEditorPage() {
                         setImageSizeBytes(null)
                       }}
                     >
-                      {t.recipes.imageDeleteButton}
-                    </Button>
+                      <DeleteIcon />
+                    </IconButton>
                   )}
                 </Stack>
                 {imagePath && (
