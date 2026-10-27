@@ -55,7 +55,7 @@ export const mealPlanRoutes: FastifyPluginAsync<MealPlansRouteOptions> = async (
              mp."updatedAt",
               r.title as "recipeTitle",
               r."imagePath" as "recipeCoverImagePath",
-              r."prepMinutes" as "recipePrepMinutes"
+              CASE WHEN r."prepMinutes" IS NULL AND r."cookMinutes" IS NULL THEN NULL ELSE COALESCE(r."prepMinutes", 0) + COALESCE(r."cookMinutes", 0) END as "recipeTotalMinutes"
        FROM "MealPlanItem" mp
       LEFT JOIN "Recipe" r ON r.id = mp."recipeId"
       WHERE mp."householdId" = $1
@@ -158,13 +158,13 @@ export const mealPlanRoutes: FastifyPluginAsync<MealPlansRouteOptions> = async (
     // Fetch recipe info if linked
     if (created.recipeId) {
       const r = await query(
-        `SELECT title as "recipeTitle", "imagePath" as "recipeCoverImagePath", "prepMinutes" as "recipePrepMinutes" FROM "Recipe" WHERE id = $1`,
+        `SELECT title as "recipeTitle", "imagePath" as "recipeCoverImagePath", CASE WHEN "prepMinutes" IS NULL AND "cookMinutes" IS NULL THEN NULL ELSE COALESCE("prepMinutes", 0) + COALESCE("cookMinutes", 0) END as "recipeTotalMinutes" FROM "Recipe" WHERE id = $1`,
         [created.recipeId]
       )
       if (r.rows[0]) {
         created.recipeTitle = r.rows[0].recipeTitle
         created.recipeCoverImagePath = r.rows[0].recipeCoverImagePath
-        created.recipePrepMinutes = r.rows[0].recipePrepMinutes
+        created.recipeTotalMinutes = r.rows[0].recipeTotalMinutes
       }
     }
 
@@ -253,13 +253,13 @@ export const mealPlanRoutes: FastifyPluginAsync<MealPlansRouteOptions> = async (
     const updated = updateRes.rows[0]
     if (updated.recipeId) {
       const r = await query(
-        `SELECT title as "recipeTitle", "imagePath" as "recipeCoverImagePath", "prepMinutes" as "recipePrepMinutes" FROM "Recipe" WHERE id = $1`,
+        `SELECT title as "recipeTitle", "imagePath" as "recipeCoverImagePath", CASE WHEN "prepMinutes" IS NULL AND "cookMinutes" IS NULL THEN NULL ELSE COALESCE("prepMinutes", 0) + COALESCE("cookMinutes", 0) END as "recipeTotalMinutes" FROM "Recipe" WHERE id = $1`,
         [updated.recipeId]
       )
       if (r.rows[0]) {
         updated.recipeTitle = r.rows[0].recipeTitle
         updated.recipeCoverImagePath = r.rows[0].recipeCoverImagePath
-        updated.recipePrepMinutes = r.rows[0].recipePrepMinutes
+        updated.recipeTotalMinutes = r.rows[0].recipeTotalMinutes
       }
     }
 

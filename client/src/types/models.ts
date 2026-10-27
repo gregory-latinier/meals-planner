@@ -19,7 +19,7 @@ export interface MealPlanItem {
 export interface MealPlanItemWithRecipe extends MealPlanItem {
   recipeTitle?: string | null
   recipeCoverImagePath?: string | null
-  recipePrepMinutes?: number | null
+  recipeTotalMinutes?: number | null
 }
 
 export interface ShoppingListQuantityEntry {

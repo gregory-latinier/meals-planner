@@ -1039,11 +1039,11 @@ export default function MealPlanPage() {
                                       {item.servings} {t.mealPlan.servingsLabel.toLowerCase()}
                                     </Typography>
                                   )}
-                                  {item.recipePrepMinutes != null && (
+                                  {item.recipeTotalMinutes != null && (
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.35, color: 'text.secondary' }}>
                                       <AccessTimeIcon sx={{ fontSize: '0.75rem' }} />
                                       <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
-                                        {item.recipePrepMinutes} min
+                                        {item.recipeTotalMinutes} min
                                       </Typography>
                                     </Box>
                                   )}
@@ -1255,11 +1255,11 @@ export default function MealPlanPage() {
                                           {item.servings} {t.mealPlan.servingsLabel.toLowerCase()}
                                         </Typography>
                                       )}
-                                      {item.recipePrepMinutes != null && (
+                                      {item.recipeTotalMinutes != null && (
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.35, color: 'text.secondary' }}>
                                           <AccessTimeIcon sx={{ fontSize: '0.75rem' }} />
                                           <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
-                                            {item.recipePrepMinutes} min
+                                            {item.recipeTotalMinutes} min
                                           </Typography>
                                         </Box>
                                       )}
